@@ -25,6 +25,13 @@ class FakeProvider:
         )
 
 
+class PoiProvider(FakeProvider):
+    def resolve_place(self, name, city=None):
+        from weather_agent.providers.qweather import GeocodedPlace
+
+        return GeocodedPlace(name=name, city=city, latitude=31.1, longitude=121.6, timezone="Asia/Shanghai")
+
+
 def test_agent_calls_weather_tool_and_answers_in_chinese():
     provider = FakeProvider()
     answer = WeatherAgent(provider).answer("上海今天会下雨吗？")
@@ -83,6 +90,16 @@ def test_agent_uses_model_to_understand_natural_language():
     assert response.status == "success"
     assert response.reply == "模型回答：杭州22°C"
     assert provider.queries[0].location == "杭州"
+
+
+def test_agent_uses_provider_geocoding_for_arbitrary_attraction():
+    provider = PoiProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="travel", location="上海", attraction="上海迪士尼度假区", target_date="2026-09-09"))
+    response = WeatherAgent(provider, language_model=model).respond("后天去上海迪士尼度假区")
+
+    assert response.status == "success"
+    assert provider.queries[0].location == "上海迪士尼度假区"
+    assert provider.queries[0].latitude == 31.1
 
 
 def test_agent_passes_history_to_model_for_follow_up_location():

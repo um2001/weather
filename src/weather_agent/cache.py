@@ -20,6 +20,8 @@ class WeatherCache:
             query.days,
             query.timezone,
             query.target_date,
+            query.latitude,
+            query.longitude,
         )
         now = monotonic()
         cached = self._items.get(key)

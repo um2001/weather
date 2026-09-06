@@ -11,6 +11,8 @@ class WeatherQuery(BaseModel):
     days: int = Field(default=3, ge=3, le=7)
     timezone: str | None = None
     target_date: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
 
     @field_validator("location")
     @classmethod
@@ -87,5 +89,4 @@ class WeatherIntent(BaseModel):
     metrics: list[str] = Field(default_factory=list)
     # For current/today queries the model may return 1; forecast is normalized to 3..7 by the agent.
     days: int = Field(default=3, ge=1, le=7)
-    target_date: str | None = None
     target_date: str | None = None

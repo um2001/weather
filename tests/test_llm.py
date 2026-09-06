@@ -77,6 +77,20 @@ def test_llm_accepts_one_day_for_today_intent():
     assert intent.days == 1
 
 
+def test_llm_parses_arbitrary_attraction_and_city():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(
+            lambda messages: AIMessage(
+                content='{"kind":"travel","location":"上海","attraction":"上海迪士尼度假区","date":"forecast","target_date":"2026-09-09"}'
+            )
+        )
+    )
+    intent = llm.extract_intent("后天去上海迪士尼度假区", [])
+    assert intent.kind == "travel"
+    assert intent.location == "上海"
+    assert intent.attraction == "上海迪士尼度假区"
+
+
 def test_llm_answer_receives_only_standard_weather_data():
     captured = []
 

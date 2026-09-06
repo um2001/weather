@@ -57,18 +57,35 @@ class WeatherAgent:
             return ChatResponse(reply="我目前支持城市天气查询和景点旅游建议。", status="unsupported")
         if intent.kind == "unsupported":
             return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持该天气需求。", status="unsupported")
-        if not intent.location or not intent.location.strip():
+        attraction = intent.attraction or (intent.attractions[0] if intent.attractions else None)
+        place_name = attraction or intent.location
+        if not place_name or not place_name.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
-        resolved = resolve_location(intent.location)
+        resolved = resolve_location(intent.location or place_name)
+        latitude = longitude = None
+        display_name = resolved.name
+        resolver = getattr(self.provider, "resolve_place", None)
+        if resolver is not None:
+            try:
+                place = resolver(place_name, city=intent.location if attraction else None)
+                display_name = place.name
+                latitude, longitude = place.latitude, place.longitude
+                timezone = place.timezone or resolved.timezone
+            except WeatherServiceError:
+                return ChatResponse(reply="无法确认这个景点的位置，请补充所在城市。", status="clarification")
+        else:
+            timezone = resolved.timezone
         days = max(3, min(7, intent.days)) if intent.date == "forecast" else 3
         target_date = intent.target_date or self._relative_date(user_input)
         query = WeatherQuery(
-            location=resolved.name,
+            location=display_name,
             date="today" if target_date else intent.date,
             metrics=intent.metrics,
             days=days,
-            timezone=resolved.timezone,
+            timezone=timezone,
             target_date=target_date,
+            latitude=latitude,
+            longitude=longitude,
         )
         return self._fetch_and_answer(query, user_input, history, travel=intent.kind == "travel")
 

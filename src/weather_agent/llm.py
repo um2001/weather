@@ -44,7 +44,8 @@ class OpenAICompatibleWeatherLLM:
         system = SystemMessage(
             content=(
                 "你是天气查询意图解析器。结合对话历史判断当前用户消息。"
-                "kind=weather 表示普通天气查询，kind=travel 表示去景点旅游并需要出行建议；缺少地点时 location=null。"
+                "kind=weather 表示普通天气查询，kind=travel 表示去景点旅游并需要出行建议。"
+                "旅游问题请把景点名称填入 attraction 或 attractions，并把用户明确提到的城市填入 location；无法确定时填 null，不要编造。"
                 "明天、后天、多日预报可用 date=forecast，并尽量填写 target_date 的 ISO 日期。长期气候等当前不支持。"
                 "与天气无关则 kind=other。不要猜测历史中没有出现的地点。"
                 "只返回 JSON，格式为："

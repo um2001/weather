@@ -4,11 +4,21 @@ from time import perf_counter
 from typing import Any
 
 import httpx
+from dataclasses import dataclass
 
 from ..errors import WeatherDataInvalid, WeatherServiceUnavailable
 from ..schemas import DailyForecast, ForecastData, WeatherData, WeatherQuery
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class GeocodedPlace:
+    name: str
+    city: str | None
+    latitude: float
+    longitude: float
+    timezone: str | None = None
 
 
 class QWeatherProvider:
@@ -33,7 +43,7 @@ class QWeatherProvider:
     def get_weather(self, query: WeatherQuery) -> WeatherData:
         started = perf_counter()
         try:
-            location_id = self._location_id(query.location)
+            location_id = self._weather_location(query)
             if query.date == "current":
                 payload = self._get("/v7/weather/now", {"location": location_id})
                 data = self._parse_now(payload, query)
@@ -51,7 +61,7 @@ class QWeatherProvider:
     def get_forecast(self, query: WeatherQuery) -> ForecastData:
         started = perf_counter()
         try:
-            location_id = self._location_id(query.location)
+            location_id = self._weather_location(query)
             payload = self._get("/v7/weather/7d", {"location": location_id})
             days = [self._parse_forecast_day(item) for item in payload["daily"][: query.days]]
             if not days:
@@ -70,6 +80,48 @@ class QWeatherProvider:
             return str(payload["location"][0]["id"])
         except (KeyError, IndexError, TypeError) as exc:
             raise WeatherDataInvalid("无法识别该城市或景点") from exc
+
+    def resolve_place(self, name: str, city: str | None = None) -> GeocodedPlace:
+        """通过和风 POI/城市地理编码验证地点并返回精确坐标。"""
+        params: dict[str, Any] = {"location": name, "number": 1}
+        if city:
+            params["adm"] = city
+        try:
+            payload = self._get_geo("/geo/v2/poi/lookup", params)
+            item = payload["poi"][0]
+            return GeocodedPlace(
+                name=str(item.get("name") or name),
+                city=item.get("adm2") or item.get("adm1") or city,
+                latitude=float(item["lat"]),
+                longitude=float(item["lon"]),
+                timezone=item.get("tz"),
+            )
+        except (WeatherDataInvalid, WeatherServiceUnavailable):
+            raise
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+            logger.info("poi lookup unavailable name=%s city=%s error=%s", name, city, type(exc).__name__)
+            if city:
+                return self._resolve_city_place(city)
+            raise WeatherDataInvalid("无法识别该景点，请补充所在城市") from exc
+
+    def _resolve_city_place(self, city: str) -> GeocodedPlace:
+        payload = self._get_geo("/geo/v2/city/lookup", {"location": city, "number": 1})
+        try:
+            item = payload["location"][0]
+            return GeocodedPlace(
+                name=city,
+                city=item.get("adm2") or item.get("adm1") or city,
+                latitude=float(item["lat"]),
+                longitude=float(item["lon"]),
+                timezone=item.get("tz"),
+            )
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            raise WeatherDataInvalid("无法识别该城市或景点") from exc
+
+    def _weather_location(self, query: WeatherQuery) -> str:
+        if query.latitude is not None and query.longitude is not None:
+            return f"{query.longitude},{query.latitude}"
+        return self._location_id(query.location)
 
     def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
         return self._request(f"{self.api_host}{path}", params)
