@@ -39,3 +39,20 @@ def test_chat_api_supports_history_follow_up():
 def test_chat_api_rejects_blank_message():
     response = TestClient(app).post("/api/chat", json={"message": "   "})
     assert response.status_code == 422
+
+
+def test_health_endpoint_does_not_require_llm_configuration():
+    response = TestClient(app).get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_chat_api_logs_request(caplog):
+    caplog.set_level("INFO", logger="weather_agent.api")
+    app.state.weather_agent = WeatherAgent(FakeProvider(), language_model=FakeLanguageModel())
+
+    response = TestClient(app).post("/api/chat", json={"message": "上海"})
+
+    assert response.status_code == 200
+    assert any("api request" in record.message and "duration_ms=" in record.message for record in caplog.records)

@@ -34,6 +34,14 @@ def test_agent_does_not_fabricate_when_service_fails():
     assert "°C" not in answer
 
 
+def test_agent_rejects_future_forecast_without_calling_provider():
+    provider = FakeProvider()
+    response = WeatherAgent(provider).respond("北京明天天气怎么样")
+
+    assert response.status == "unsupported"
+    assert provider.queries == []
+
+
 class FakeLanguageModel:
     def __init__(self, intent):
         self.intent = intent

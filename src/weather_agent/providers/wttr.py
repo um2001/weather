@@ -1,5 +1,6 @@
 import logging
 from datetime import date
+from time import perf_counter
 from typing import Any
 
 import httpx
@@ -18,6 +19,7 @@ class WttrProvider:
 
     def get_weather(self, query: WeatherQuery) -> WeatherData:
         url = f"{self.base_url}/{query.location}"
+        started = perf_counter()
         try:
             if self._client is not None:
                 response = self._client.get(url, params={"format": "j1"}, timeout=self.timeout)
@@ -27,13 +29,29 @@ class WttrProvider:
             response.raise_for_status()
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            logger.warning("weather request failed provider=wttr error=%s", type(exc).__name__)
+            logger.warning(
+                "weather request failed provider=wttr location=%s error=%s duration_ms=%.1f",
+                query.location,
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
             raise WeatherServiceUnavailable("天气服务暂时不可用") from exc
         try:
-            return self._parse(payload, query)
+            data = self._parse(payload, query)
         except (KeyError, IndexError, TypeError, ValueError) as exc:
-            logger.warning("weather response invalid provider=wttr error=%s", type(exc).__name__)
+            logger.warning(
+                "weather response invalid provider=wttr location=%s error=%s duration_ms=%.1f",
+                query.location,
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
             raise WeatherDataInvalid("天气服务返回的数据无法解析") from exc
+        logger.info(
+            "weather request succeeded provider=wttr location=%s duration_ms=%.1f",
+            query.location,
+            (perf_counter() - started) * 1000,
+        )
+        return data
 
     @staticmethod
     def _parse(payload: dict[str, Any], query: WeatherQuery) -> WeatherData:

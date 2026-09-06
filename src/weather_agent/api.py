@@ -1,5 +1,6 @@
 import logging
 import os
+from time import perf_counter
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -10,6 +11,26 @@ from .factory import create_weather_agent
 from .schemas import ChatRequest, ChatResponse
 
 app = FastAPI(title="天气助手 API", version="0.2.0")
+logger = logging.getLogger(__name__)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    started = perf_counter()
+    response = await call_next(request)
+    logger.info(
+        "api request method=%s path=%s status=%s duration_ms=%.1f",
+        request.method,
+        request.url.path,
+        response.status_code,
+        (perf_counter() - started) * 1000,
+    )
+    return response
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
 
 def get_agent(request: Request) -> WeatherAgent:

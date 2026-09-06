@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from time import perf_counter
 from typing import Protocol
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -50,6 +51,7 @@ class OpenAICompatibleWeatherLLM:
                 '"date":"current|today","metrics":[]}。'
             )
         )
+        started = perf_counter()
         try:
             result = self.model.invoke([system, *self._history_messages(history), HumanMessage(content=message)])
             content = result.content
@@ -58,8 +60,13 @@ class OpenAICompatibleWeatherLLM:
             json_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
             intent = WeatherIntent.model_validate_json(json_text)
         except Exception as exc:
-            logger.warning("language model intent extraction failed error=%s", type(exc).__name__)
+            logger.warning(
+                "language model intent extraction failed error=%s duration_ms=%.1f",
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
             raise LanguageModelError("大模型暂时无法处理请求") from exc
+        logger.info("language model intent extracted duration_ms=%.1f", (perf_counter() - started) * 1000)
         return intent
 
     def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData) -> str:
@@ -70,14 +77,20 @@ class OpenAICompatibleWeatherLLM:
             )
         )
         prompt = HumanMessage(content=f"用户问题：{message}\n天气数据：{data.model_dump_json()}")
+        started = perf_counter()
         try:
             result = self.model.invoke([system, *self._history_messages(history), prompt])
         except Exception as exc:
-            logger.warning("language model answer generation failed error=%s", type(exc).__name__)
+            logger.warning(
+                "language model answer generation failed error=%s duration_ms=%.1f",
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
             raise LanguageModelError("大模型暂时无法生成回答") from exc
         content = result.content
         if not isinstance(content, str) or not content.strip():
             raise LanguageModelError("大模型返回了空回答")
+        logger.info("language model answer generated duration_ms=%.1f", (perf_counter() - started) * 1000)
         return content.strip()
 
     @staticmethod

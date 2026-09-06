@@ -31,7 +31,10 @@ class WeatherAgent:
             return self._respond_with_model(user_input, history)
         if not self._is_weather_request(user_input):
             return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
-        if any(word in user_input for word in ("长期气候", "未来7天", "未来七天", "气候分析")):
+        if any(
+            word in user_input
+            for word in ("明天", "后天", "下周", "未来3天", "未来三天", "未来7天", "未来七天", "多日", "长期气候", "气候分析")
+        ):
             return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持长期预报或气候分析。", status="unsupported")
         query = self.query_extractor(user_input) if self.query_extractor else self._extract_query(user_input)
         if query is None:
