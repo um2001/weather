@@ -53,6 +53,7 @@ class OpenAICompatibleWeatherLLM:
             )
         )
         started = perf_counter()
+        content = ""
         try:
             result = self.model.invoke([system, *self._history_messages(history), HumanMessage(content=message)])
             content = result.content
