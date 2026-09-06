@@ -82,11 +82,24 @@ class WttrProvider:
         return forecasts
 
     @staticmethod
+    def _translate_description(value: str | None) -> str | None:
+        if not value:
+            return None
+        mapping = {
+            "Sunny": "晴", "Clear": "晴", "Partly cloudy": "局部多云", "Cloudy": "多云",
+            "Overcast": "阴", "Mist": "薄雾", "Fog": "雾", "Light rain": "小雨",
+            "Moderate rain": "中雨", "Heavy rain": "大雨", "Patchy rain possible": "局部可能有雨",
+            "Thundery outbreaks possible": "可能有雷雨", "Light snow": "小雪",
+            "Moderate snow": "中雪", "Heavy snow": "大雪",
+        }
+        return mapping.get(value.strip(), value)
+
+    @staticmethod
     def _parse(payload: dict[str, Any], query: WeatherQuery) -> WeatherData:
         current = payload["current_condition"][0]
         day = payload.get("weather", [{}])[0]
         hourly = day.get("hourly", [{}])[0]
-        description = current.get("weatherDesc", [{}])[0].get("value")
+        description = WttrProvider._translate_description(current.get("weatherDesc", [{}])[0].get("value"))
         temperature = current.get("temp_C")
         if temperature is None:
             raise ValueError("missing temperature")
@@ -108,7 +121,7 @@ class WttrProvider:
         days = []
         for item in payload["weather"][: query.days]:
             hourly = item.get("hourly", [{}])[0]
-            desc = hourly.get("weatherDesc", [{}])[0].get("value")
+            desc = WttrProvider._translate_description(hourly.get("weatherDesc", [{}])[0].get("value"))
             precip = hourly.get("chanceofrain") or item.get("chanceofrain")
             days.append(
                 DailyForecast(

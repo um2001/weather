@@ -29,6 +29,7 @@ def test_wttr_provider_normalizes_response():
     assert data.humidity_percent == 55
     assert data.precipitation_probability_percent == 30
     assert data.source == "wttr.in"
+    assert data.weather_description == "局部多云"
 
 
 @respx.mock
@@ -55,3 +56,4 @@ def test_wttr_provider_parses_forecast():
     assert len(data.days) == 3
     assert data.days[0].temperature_max_c == 26
     assert data.days[2].precipitation_probability_percent == 60
+    assert data.days[1].weather_description == "多云"

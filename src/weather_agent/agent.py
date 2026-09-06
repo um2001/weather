@@ -75,7 +75,14 @@ class WeatherAgent:
         try:
             if query.date == "forecast":
                 forecast = self.cache.get_or_set(query, lambda: self.provider.get_forecast(query))
-                return ChatResponse(reply=self._format_forecast(forecast), status="success")
+                if self.language_model:
+                    try:
+                        reply = self.language_model.generate_answer(user_input, history, forecast)
+                    except LanguageModelError:
+                        reply = self._format_forecast(forecast)
+                else:
+                    reply = self._format_forecast(forecast)
+                return ChatResponse(reply=reply, status="success")
             data = self.cache.get_or_set(query, lambda: get_weather(query, self.provider))
         except WeatherServiceError:
             logger.info("weather query failed location=%s", query.location)

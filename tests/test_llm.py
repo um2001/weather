@@ -91,6 +91,15 @@ def test_llm_answer_receives_only_standard_weather_data():
     assert '"temperature_c":24.0' in captured[-1].content
 
 
+def test_llm_removes_thinking_tags_from_final_answer():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(lambda messages: AIMessage(content="<think>internal reasoning</think>上海今天晴。"))
+    )
+    data = WeatherData(location="上海", date="today", temperature_c=24, source="fake")
+
+    assert llm.generate_answer("上海天气", [], data) == "上海今天晴。"
+
+
 def test_llm_requires_environment_configuration(monkeypatch):
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.delenv("LLM_MODEL", raising=False)

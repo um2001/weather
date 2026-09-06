@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from .errors import ConfigurationError, LanguageModelError, LanguageModelResponseError
-from .schemas import ChatMessage, WeatherData, WeatherIntent
+from .schemas import ChatMessage, ForecastData, WeatherData, WeatherIntent
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class WeatherLanguageModel(Protocol):
     def extract_intent(self, message: str, history: list[ChatMessage]) -> WeatherIntent: ...
 
-    def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData) -> str: ...
+    def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData | ForecastData) -> str: ...
 
 
 class OpenAICompatibleWeatherLLM:
@@ -136,6 +136,7 @@ class OpenAICompatibleWeatherLLM:
             content=(
                 "你是中文天气助手。只能根据提供的标准天气数据回答当前问题，"
                 "不得补充或猜测数据中没有的信息。回答简洁、自然，并明确地点和日期。"
+                "只输出最终回答，不要输出<think>、Markdown代码块或分析过程。"
             )
         )
         prompt = HumanMessage(content=f"用户问题：{message}\n天气数据：{data.model_dump_json()}")
@@ -153,7 +154,13 @@ class OpenAICompatibleWeatherLLM:
         if not isinstance(content, str) or not content.strip():
             raise LanguageModelError("大模型返回了空回答")
         logger.info("language model answer generated duration_ms=%.1f", (perf_counter() - started) * 1000)
-        return content.strip()
+        return self._clean_answer(content)
+
+    @staticmethod
+    def _clean_answer(content: str) -> str:
+        cleaned = re.sub(r"<think>.*?</think>", "", content, flags=re.IGNORECASE | re.DOTALL)
+        cleaned = re.sub(r"^```(?:text|markdown)?\s*|\s*```$", "", cleaned.strip(), flags=re.IGNORECASE)
+        return cleaned.strip()
 
     @staticmethod
     def _history_messages(history: list[ChatMessage]) -> list[HumanMessage | AIMessage]:
