@@ -77,4 +77,5 @@ class WeatherIntent(BaseModel):
     location: str | None = None
     date: Literal["current", "today", "forecast"] = "today"
     metrics: list[str] = Field(default_factory=list)
-    days: int = Field(default=3, ge=3, le=7)
+    # For current/today queries the model may return 1; forecast is normalized to 3..7 by the agent.
+    days: int = Field(default=3, ge=1, le=7)

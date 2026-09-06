@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableLambda
 
-from weather_agent.errors import ConfigurationError, LanguageModelError
+from weather_agent.errors import ConfigurationError, LanguageModelError, LanguageModelResponseError
 from weather_agent.llm import OpenAICompatibleWeatherLLM
 from weather_agent.schemas import ChatMessage, WeatherData
 
@@ -26,7 +26,7 @@ def test_llm_parses_json_intent_and_includes_history():
 
 def test_llm_rejects_invalid_intent_response():
     llm = OpenAICompatibleWeatherLLM(RunnableLambda(lambda messages: AIMessage(content="not json")))
-    with pytest.raises(LanguageModelError):
+    with pytest.raises(LanguageModelResponseError):
         llm.extract_intent("上海天气", [])
 
 
@@ -60,6 +60,21 @@ def test_llm_accepts_common_model_aliases():
     assert intent.kind == "weather"
     assert intent.date == "forecast"
     assert intent.days == 3
+
+
+def test_llm_accepts_one_day_for_today_intent():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(
+            lambda messages: AIMessage(
+                content='{"kind":"weather","location":"哈尔滨","date":"today","days":1,"metrics":["precipitation"]}'
+            )
+        )
+    )
+
+    intent = llm.extract_intent("哈尔滨今天会下雨吗？", [])
+
+    assert intent.date == "today"
+    assert intent.days == 1
 
 
 def test_llm_answer_receives_only_standard_weather_data():

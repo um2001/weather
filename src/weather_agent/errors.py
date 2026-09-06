@@ -14,5 +14,9 @@ class LanguageModelError(Exception):
     """The configured language model could not process the request."""
 
 
+class LanguageModelResponseError(LanguageModelError):
+    """The model responded, but its content did not match the intent schema."""
+
+
 class ConfigurationError(Exception):
     """Required application configuration is missing or invalid."""

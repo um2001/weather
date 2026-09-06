@@ -8,7 +8,7 @@ from typing import Protocol
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from .errors import ConfigurationError, LanguageModelError
+from .errors import ConfigurationError, LanguageModelError, LanguageModelResponseError
 from .schemas import ChatMessage, WeatherData, WeatherIntent
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,6 @@ class OpenAICompatibleWeatherLLM:
             content = result.content
             if not isinstance(content, str):
                 raise ValueError("intent response is not text")
-            intent = self._parse_intent(content)
         except Exception as exc:
             logger.warning(
                 "language model intent extraction failed error=%s detail=%s response_preview=%s duration_ms=%.1f",
@@ -69,6 +68,17 @@ class OpenAICompatibleWeatherLLM:
                 (perf_counter() - started) * 1000,
             )
             raise LanguageModelError("大模型暂时无法处理请求") from exc
+        try:
+            intent = self._parse_intent(content)
+        except Exception as exc:
+            logger.warning(
+                "language model intent response invalid error=%s detail=%s response_preview=%s duration_ms=%.1f",
+                type(exc).__name__,
+                str(exc)[:240],
+                content[:240].replace("\n", " "),
+                (perf_counter() - started) * 1000,
+            )
+            raise LanguageModelResponseError("大模型返回的查询格式无法识别") from exc
         logger.info("language model intent extracted duration_ms=%.1f", (perf_counter() - started) * 1000)
         return intent
 

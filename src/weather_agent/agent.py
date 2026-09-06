@@ -3,7 +3,7 @@ import re
 from collections.abc import Callable
 
 from .cache import WeatherCache
-from .errors import LanguageModelError, WeatherServiceError
+from .errors import LanguageModelError, LanguageModelResponseError, WeatherServiceError
 from .llm import WeatherLanguageModel
 from .location import resolve_location
 from .providers.base import WeatherProvider
@@ -48,8 +48,10 @@ class WeatherAgent:
     def _respond_with_model(self, user_input: str, history: list[ChatMessage]) -> ChatResponse:
         try:
             intent = self.language_model.extract_intent(user_input, history)
+        except LanguageModelResponseError:
+            return ChatResponse(reply="大模型返回的查询格式无法识别，请换一种说法再试。", status="error")
         except LanguageModelError:
-            return ChatResponse(reply="抱歉，大模型服务暂时无法使用，请稍后再试。", status="error")
+            return ChatResponse(reply="大模型服务暂时无法使用，请稍后再试。", status="error")
         if intent.kind == "other":
             return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
         if intent.kind == "unsupported":
@@ -57,11 +59,12 @@ class WeatherAgent:
         if not intent.location or not intent.location.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
         resolved = resolve_location(intent.location)
+        days = max(3, min(7, intent.days)) if intent.date == "forecast" else 3
         query = WeatherQuery(
             location=resolved.name,
             date=intent.date,
             metrics=intent.metrics,
-            days=intent.days,
+            days=days,
             timezone=resolved.timezone,
         )
         return self._fetch_and_answer(query, user_input, history)
