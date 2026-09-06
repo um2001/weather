@@ -1,4 +1,5 @@
 import logging
+import json
 import os
 import re
 from time import perf_counter
@@ -57,17 +58,67 @@ class OpenAICompatibleWeatherLLM:
             content = result.content
             if not isinstance(content, str):
                 raise ValueError("intent response is not text")
-            json_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
-            intent = WeatherIntent.model_validate_json(json_text)
+            intent = self._parse_intent(content)
         except Exception as exc:
             logger.warning(
-                "language model intent extraction failed error=%s duration_ms=%.1f",
+                "language model intent extraction failed error=%s detail=%s response_preview=%s duration_ms=%.1f",
                 type(exc).__name__,
+                str(exc)[:240],
+                content[:240].replace("\n", " ") if isinstance(content, str) else "<non-text>",
                 (perf_counter() - started) * 1000,
             )
             raise LanguageModelError("大模型暂时无法处理请求") from exc
         logger.info("language model intent extracted duration_ms=%.1f", (perf_counter() - started) * 1000)
         return intent
+
+    @staticmethod
+    def _parse_intent(content: str) -> WeatherIntent:
+        """Parse common model JSON variants without weakening schema validation."""
+        text = content.strip()
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE).strip()
+        if not text.startswith("{"):
+            match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+            if not match:
+                raise ValueError("intent response does not contain a JSON object")
+            text = match.group(0)
+        payload = json.loads(text)
+        if not isinstance(payload, dict):
+            raise ValueError("intent response is not a JSON object")
+        kind_aliases = {
+            "天气": "weather",
+            "天气查询": "weather",
+            "weather_query": "weather",
+            "weather-query": "weather",
+            "不支持": "unsupported",
+            "其他": "other",
+        }
+        date_aliases = {
+            "现在": "current",
+            "当前": "current",
+            "today": "today",
+            "今天": "today",
+            "明天": "forecast",
+            "明日": "forecast",
+            "tomorrow": "forecast",
+            "后天": "forecast",
+            "forecast": "forecast",
+            "预报": "forecast",
+        }
+        if isinstance(payload.get("kind"), str):
+            payload["kind"] = kind_aliases.get(payload["kind"], payload["kind"])
+        if isinstance(payload.get("date"), str):
+            payload["date"] = date_aliases.get(payload["date"], payload["date"])
+        if payload.get("date") == "forecast":
+            try:
+                days = payload.get("days", 3)
+                if isinstance(days, str):
+                    days = re.search(r"\d+", days).group(0) if re.search(r"\d+", days) else 3
+                payload["days"] = max(3, min(7, int(days)))
+            except (TypeError, ValueError):
+                payload["days"] = 3
+        if payload.get("metrics") is None:
+            payload["metrics"] = []
+        return WeatherIntent.model_validate(payload)
 
     def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData) -> str:
         system = SystemMessage(

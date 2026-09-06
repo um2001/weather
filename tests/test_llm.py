@@ -30,6 +30,38 @@ def test_llm_rejects_invalid_intent_response():
         llm.extract_intent("上海天气", [])
 
 
+def test_llm_accepts_fenced_json_with_surrounding_text_and_date_alias():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(
+            lambda messages: AIMessage(
+                content='结果如下：```json\n{"kind":"weather","location":"上海","date":"明天","days":"5"}\n```'
+            )
+        )
+    )
+
+    intent = llm.extract_intent("上海明天天气", [])
+
+    assert intent.kind == "weather"
+    assert intent.date == "forecast"
+    assert intent.days == 5
+
+
+def test_llm_accepts_common_model_aliases():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(
+            lambda messages: AIMessage(
+                content='{"kind":"weather_query","location":"北京","date":"tomorrow","days":"未来 3 天"}'
+            )
+        )
+    )
+
+    intent = llm.extract_intent("北京明天天气", [])
+
+    assert intent.kind == "weather"
+    assert intent.date == "forecast"
+    assert intent.days == 3
+
+
 def test_llm_answer_receives_only_standard_weather_data():
     captured = []
 
