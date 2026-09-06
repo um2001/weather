@@ -29,3 +29,33 @@ class WeatherData(BaseModel):
     wind_speed_kmh: float | None = Field(default=None, ge=0)
     precipitation_probability_percent: int | None = Field(default=None, ge=0, le=100)
     source: str
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    history: list[ChatMessage] = Field(default_factory=list)
+
+    @field_validator("message")
+    @classmethod
+    def normalize_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message cannot be blank")
+        return value
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    status: Literal["success", "clarification", "unsupported", "error"]
+
+
+class WeatherIntent(BaseModel):
+    kind: Literal["weather", "unsupported", "other"]
+    location: str | None = None
+    date: Literal["current", "today"] = "today"
+    metrics: list[str] = Field(default_factory=list)

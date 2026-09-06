@@ -2,33 +2,76 @@ import logging
 import re
 from collections.abc import Callable
 
-from .errors import WeatherServiceError
+from .errors import LanguageModelError, WeatherServiceError
+from .llm import WeatherLanguageModel
 from .providers.base import WeatherProvider
-from .schemas import WeatherData, WeatherQuery
+from .schemas import ChatMessage, ChatResponse, WeatherData, WeatherQuery
 from .tools import get_weather
 
 logger = logging.getLogger(__name__)
 
 
 class WeatherAgent:
-    def __init__(self, provider: WeatherProvider, query_extractor: Callable[[str], WeatherQuery | None] | None = None):
+    def __init__(
+        self,
+        provider: WeatherProvider,
+        query_extractor: Callable[[str], WeatherQuery | None] | None = None,
+        language_model: WeatherLanguageModel | None = None,
+    ):
         self.provider = provider
         self.query_extractor = query_extractor
+        self.language_model = language_model
 
-    def answer(self, user_input: str) -> str:
+    def answer(self, user_input: str, history: list[ChatMessage] | None = None) -> str:
+        return self.respond(user_input, history).reply
+
+    def respond(self, user_input: str, history: list[ChatMessage] | None = None) -> ChatResponse:
+        history = history or []
+        if self.language_model:
+            return self._respond_with_model(user_input, history)
         if not self._is_weather_request(user_input):
-            return "我目前只支持查询城市的当前或今日天气。"
+            return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
         if any(word in user_input for word in ("长期气候", "未来7天", "未来七天", "气候分析")):
-            return "目前仅支持查询当前或今天的天气，暂不支持长期预报或气候分析。"
+            return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持长期预报或气候分析。", status="unsupported")
         query = self.query_extractor(user_input) if self.query_extractor else self._extract_query(user_input)
         if query is None:
-            return "请告诉我想查询的城市或地区。"
+            return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
+        return self._fetch_and_answer(query, user_input, history)
+
+    def _respond_with_model(self, user_input: str, history: list[ChatMessage]) -> ChatResponse:
+        try:
+            intent = self.language_model.extract_intent(user_input, history)
+        except LanguageModelError:
+            return ChatResponse(reply="抱歉，大模型服务暂时无法使用，请稍后再试。", status="error")
+        if intent.kind == "other":
+            return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
+        if intent.kind == "unsupported":
+            return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持该天气需求。", status="unsupported")
+        if not intent.location or not intent.location.strip():
+            return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
+        query = WeatherQuery(
+            location=intent.location,
+            date=intent.date,
+            metrics=intent.metrics,
+        )
+        return self._fetch_and_answer(query, user_input, history)
+
+    def _fetch_and_answer(
+        self, query: WeatherQuery, user_input: str, history: list[ChatMessage]
+    ) -> ChatResponse:
         try:
             data = get_weather(query, self.provider)
         except WeatherServiceError:
             logger.info("weather query failed location=%s", query.location)
-            return "抱歉，天气服务暂时无法使用，请稍后再试。"
-        return self._format_answer(data)
+            return ChatResponse(reply="抱歉，天气服务暂时无法使用，请稍后再试。", status="error")
+        if self.language_model:
+            try:
+                reply = self.language_model.generate_answer(user_input, history, data)
+            except LanguageModelError:
+                reply = self._format_answer(data)
+        else:
+            reply = self._format_answer(data)
+        return ChatResponse(reply=reply, status="success")
 
     @staticmethod
     def _is_weather_request(text: str) -> bool:

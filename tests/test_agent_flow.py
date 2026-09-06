@@ -1,6 +1,6 @@
 from weather_agent.agent import WeatherAgent
-from weather_agent.errors import WeatherServiceUnavailable
-from weather_agent.schemas import WeatherData
+from weather_agent.errors import LanguageModelError, WeatherServiceUnavailable
+from weather_agent.schemas import ChatMessage, WeatherData, WeatherIntent
 
 
 class FakeProvider:
@@ -32,3 +32,64 @@ def test_agent_does_not_fabricate_when_service_fails():
     answer = WeatherAgent(FakeProvider(error=True)).answer("北京天气怎么样")
     assert "暂时无法使用" in answer
     assert "°C" not in answer
+
+
+class FakeLanguageModel:
+    def __init__(self, intent):
+        self.intent = intent
+        self.answer_calls = []
+
+    def extract_intent(self, message, history):
+        self.extract_call = (message, history)
+        return self.intent
+
+    def generate_answer(self, message, history, data):
+        self.answer_calls.append((message, history, data))
+        return f"模型回答：{data.location}{data.temperature_c:g}°C"
+
+
+def test_agent_uses_model_to_understand_natural_language():
+    provider = FakeProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="杭州", metrics=["temperature"]))
+
+    response = WeatherAgent(provider, language_model=model).respond("出门穿厚点还是薄点？")
+
+    assert response.status == "success"
+    assert response.reply == "模型回答：杭州22°C"
+    assert provider.queries[0].location == "杭州"
+
+
+def test_agent_passes_history_to_model_for_follow_up_location():
+    provider = FakeProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="上海"))
+    history = [
+        ChatMessage(role="user", content="今天会下雨吗？"),
+        ChatMessage(role="assistant", content="请告诉我想查询的城市或地区。"),
+    ]
+
+    response = WeatherAgent(provider, language_model=model).respond("上海", history)
+
+    assert response.status == "success"
+    assert model.extract_call == ("上海", history)
+
+
+def test_agent_asks_for_location_from_model_intent():
+    provider = FakeProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location=None))
+
+    response = WeatherAgent(provider, language_model=model).respond("今天适合出门吗？")
+
+    assert response.status == "clarification"
+    assert provider.queries == []
+
+
+def test_agent_falls_back_to_standardized_data_when_answer_model_fails():
+    class FailingAnswerModel(FakeLanguageModel):
+        def generate_answer(self, message, history, data):
+            raise LanguageModelError()
+
+    model = FailingAnswerModel(WeatherIntent(kind="weather", location="北京"))
+    response = WeatherAgent(FakeProvider(), language_model=model).respond("北京冷不冷？")
+
+    assert response.status == "success"
+    assert "北京" in response.reply and "22°C" in response.reply

@@ -8,3 +8,11 @@ class WeatherServiceUnavailable(WeatherServiceError):
 
 class WeatherDataInvalid(WeatherServiceError):
     """The provider response did not contain usable weather data."""
+
+
+class LanguageModelError(Exception):
+    """The configured language model could not process the request."""
+
+
+class ConfigurationError(Exception):
+    """Required application configuration is missing or invalid."""
