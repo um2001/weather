@@ -14,6 +14,16 @@ class FakeProvider:
             raise WeatherServiceUnavailable()
         return WeatherData(location=query.location, date=query.date, temperature_c=22, weather_description="晴", precipitation_probability_percent=10, source="fake")
 
+    def get_forecast(self, query):
+        from weather_agent.schemas import DailyForecast, ForecastData
+
+        return ForecastData(
+            location=query.location,
+            timezone=query.timezone,
+            days=[DailyForecast(date="2026-09-06", temperature_min_c=18, temperature_max_c=26, weather_description="晴")],
+            source="fake",
+        )
+
 
 def test_agent_calls_weather_tool_and_answers_in_chinese():
     provider = FakeProvider()
@@ -36,10 +46,18 @@ def test_agent_does_not_fabricate_when_service_fails():
 
 def test_agent_rejects_future_forecast_without_calling_provider():
     provider = FakeProvider()
-    response = WeatherAgent(provider).respond("北京明天天气怎么样")
+    response = WeatherAgent(provider).respond("北京长期气候怎么样")
 
     assert response.status == "unsupported"
     assert provider.queries == []
+
+
+def test_agent_returns_forecast_without_language_model():
+    response = WeatherAgent(FakeProvider()).respond("北京未来3天天气")
+
+    assert response.status == "success"
+    assert "未来1天天气预报" in response.reply
+    assert "北京" in response.reply
 
 
 class FakeLanguageModel:

@@ -34,12 +34,12 @@ class WeatherAgent:
         if self.language_model:
             return self._respond_with_model(user_input, history)
         if not self._is_weather_request(user_input):
-            return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
+            return ChatResponse(reply="我目前只支持查询城市的当前、今日或未来 3～7 天天气。", status="unsupported")
         if any(
             word in user_input
-            for word in ("明天", "后天", "下周", "未来3天", "未来三天", "未来7天", "未来七天", "多日", "长期气候", "气候分析")
+            for word in ("长期气候", "气候分析")
         ):
-            return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持长期预报或气候分析。", status="unsupported")
+            return ChatResponse(reply="目前支持当前、今日或未来 3～7 天预报，暂不支持长期气候分析。", status="unsupported")
         query = self.query_extractor(user_input) if self.query_extractor else self._extract_query(user_input)
         if query is None:
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
@@ -94,6 +94,7 @@ class WeatherAgent:
     def _extract_query(text: str) -> WeatherQuery | None:
         cleaned = re.sub(r"[，。！？?！,.]", "", text).strip()
         normalized = re.sub(r"^(请问|帮我查一下|帮我查|查询|查一下|查)\s*", "", cleaned).strip()
+        normalized = re.sub(r"(?:明天|后天|下周|未来\s*[3３]\s*天|未来\s*[7７]\s*天|多日)", "", normalized).strip()
         match = re.search(r"(?:今天|今日|现在|当前|天气|会下雨|下雨)", normalized)
         location = normalized[: match.start()] if match else normalized
         location = location.strip()
