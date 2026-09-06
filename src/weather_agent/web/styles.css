@@ -1,0 +1,26 @@
+:root { color-scheme: dark; --ink:#e9f1ed; --muted:#8fa7a0; --bg:#081513; --panel:#0d211d; --line:#214239; --mint:#a4f6c9; --orange:#ff9b61; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; background: radial-gradient(circle at 80% 0%, #173d31 0, transparent 38%), var(--bg); color:var(--ink); font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+.shell { width:min(1120px, 92vw); margin:0 auto; padding:7vh 0 8vh; display:grid; grid-template-columns: .85fr 1.15fr; gap:7vw; align-items:center; }
+.brand { font-weight:700; letter-spacing:.08em; display:flex; gap:10px; align-items:center; }
+.pulse,.dot { width:9px; height:9px; border-radius:50%; background:var(--mint); box-shadow:0 0 18px var(--mint); display:inline-block; }
+.eyebrow { color:var(--orange); font-size:12px; letter-spacing:.22em; margin:74px 0 18px; }
+h1 { font-family: Georgia, "Times New Roman", serif; font-size:clamp(48px, 7vw, 86px); line-height:.95; font-weight:400; letter-spacing:-.06em; margin:0 0 28px; }
+h1 em { color:var(--mint); font-style:normal; }
+.lede { color:var(--muted); line-height:1.8; font-size:16px; }
+.console { background:rgba(13,33,29,.84); border:1px solid var(--line); padding:24px; box-shadow:0 24px 70px rgba(0,0,0,.25); }
+.messages { min-height:320px; max-height:52vh; overflow:auto; display:flex; flex-direction:column; gap:14px; padding:4px; }
+.welcome { color:var(--muted); font-size:13px; display:flex; align-items:center; gap:9px; padding:14px 0; border-bottom:1px solid var(--line); }
+.msg { max-width:88%; padding:14px 16px; line-height:1.65; border:1px solid var(--line); }
+.msg.user { align-self:flex-end; color:#082017; background:var(--mint); border-color:var(--mint); }
+.msg.assistant { align-self:flex-start; background:#112a24; }
+.composer { margin-top:18px; display:flex; gap:10px; }
+input { flex:1; min-width:0; color:var(--ink); background:#081915; border:1px solid var(--line); padding:15px; font:inherit; outline:none; }
+input:focus { border-color:var(--mint); }
+button { border:0; cursor:pointer; font:inherit; }
+.composer button { background:var(--orange); color:#271309; padding:0 18px; font-weight:700; }
+.composer button span { font-size:20px; margin-left:8px; }
+.suggestions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.suggestions button { color:var(--muted); background:transparent; border:1px solid var(--line); padding:8px 11px; font-size:12px; }
+.suggestions button:hover { color:var(--mint); border-color:var(--mint); }
+@media (max-width: 780px) { .shell { grid-template-columns:1fr; gap:36px; padding-top:34px; } .eyebrow { margin-top:48px; } .console { padding:16px; } .composer { flex-direction:column; } .composer button { padding:14px; } }

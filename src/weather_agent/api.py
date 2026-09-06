@@ -4,6 +4,8 @@ from time import perf_counter
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .agent import WeatherAgent
 from .errors import ConfigurationError
@@ -12,6 +14,8 @@ from .schemas import ChatRequest, ChatResponse
 
 app = FastAPI(title="天气助手 API", version="0.2.0")
 logger = logging.getLogger(__name__)
+WEB_INDEX = os.path.join(os.path.dirname(__file__), "web", "index.html")
+app.mount("/web", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "web")), name="web")
 
 
 @app.middleware("http")
@@ -31,6 +35,11 @@ async def log_requests(request: Request, call_next):
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def web_app() -> FileResponse:
+    return FileResponse(WEB_INDEX, media_type="text/html")
 
 
 def get_agent(request: Request) -> WeatherAgent:

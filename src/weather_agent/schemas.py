@@ -5,9 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 class WeatherQuery(BaseModel):
     location: str = Field(min_length=1)
-    date: Literal["current", "today"] = "today"
+    date: Literal["current", "today", "forecast"] = "today"
     unit: Literal["celsius"] = "celsius"
     metrics: list[str] = Field(default_factory=list)
+    days: int = Field(default=3, ge=3, le=7)
+    timezone: str | None = None
 
     @field_validator("location")
     @classmethod
@@ -28,6 +30,22 @@ class WeatherData(BaseModel):
     humidity_percent: int | None = Field(default=None, ge=0, le=100)
     wind_speed_kmh: float | None = Field(default=None, ge=0)
     precipitation_probability_percent: int | None = Field(default=None, ge=0, le=100)
+    source: str
+    timezone: str | None = None
+
+
+class DailyForecast(BaseModel):
+    date: str
+    weather_description: str | None = None
+    temperature_min_c: float | None = None
+    temperature_max_c: float | None = None
+    precipitation_probability_percent: int | None = Field(default=None, ge=0, le=100)
+
+
+class ForecastData(BaseModel):
+    location: str
+    timezone: str | None = None
+    days: list[DailyForecast]
     source: str
 
 
@@ -57,5 +75,6 @@ class ChatResponse(BaseModel):
 class WeatherIntent(BaseModel):
     kind: Literal["weather", "unsupported", "other"]
     location: str | None = None
-    date: Literal["current", "today"] = "today"
+    date: Literal["current", "today", "forecast"] = "today"
     metrics: list[str] = Field(default_factory=list)
+    days: int = Field(default=3, ge=3, le=7)

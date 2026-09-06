@@ -2,10 +2,12 @@ import logging
 import re
 from collections.abc import Callable
 
+from .cache import WeatherCache
 from .errors import LanguageModelError, WeatherServiceError
 from .llm import WeatherLanguageModel
+from .location import resolve_location
 from .providers.base import WeatherProvider
-from .schemas import ChatMessage, ChatResponse, WeatherData, WeatherQuery
+from .schemas import ChatMessage, ChatResponse, ForecastData, WeatherData, WeatherQuery
 from .tools import get_weather
 
 logger = logging.getLogger(__name__)
@@ -17,10 +19,12 @@ class WeatherAgent:
         provider: WeatherProvider,
         query_extractor: Callable[[str], WeatherQuery | None] | None = None,
         language_model: WeatherLanguageModel | None = None,
+        cache: WeatherCache | None = None,
     ):
         self.provider = provider
         self.query_extractor = query_extractor
         self.language_model = language_model
+        self.cache = cache or WeatherCache()
 
     def answer(self, user_input: str, history: list[ChatMessage] | None = None) -> str:
         return self.respond(user_input, history).reply
@@ -52,10 +56,13 @@ class WeatherAgent:
             return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持该天气需求。", status="unsupported")
         if not intent.location or not intent.location.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
+        resolved = resolve_location(intent.location)
         query = WeatherQuery(
-            location=intent.location,
+            location=resolved.name,
             date=intent.date,
             metrics=intent.metrics,
+            days=intent.days,
+            timezone=resolved.timezone,
         )
         return self._fetch_and_answer(query, user_input, history)
 
@@ -63,7 +70,10 @@ class WeatherAgent:
         self, query: WeatherQuery, user_input: str, history: list[ChatMessage]
     ) -> ChatResponse:
         try:
-            data = get_weather(query, self.provider)
+            if query.date == "forecast":
+                forecast = self.cache.get_or_set(query, lambda: self.provider.get_forecast(query))
+                return ChatResponse(reply=self._format_forecast(forecast), status="success")
+            data = self.cache.get_or_set(query, lambda: get_weather(query, self.provider))
         except WeatherServiceError:
             logger.info("weather query failed location=%s", query.location)
             return ChatResponse(reply="抱歉，天气服务暂时无法使用，请稍后再试。", status="error")
@@ -91,7 +101,9 @@ class WeatherAgent:
         if not location or location in {"今天", "今日", "现在", "当前"}:
             return None
         current = any(word in cleaned for word in ("现在", "当前"))
-        return WeatherQuery(location=location, date="current" if current else "today")
+        forecast = any(word in cleaned for word in ("明天", "后天", "下周", "未来3天", "未来三天", "未来7天", "未来七天", "多日"))
+        resolved = resolve_location(location)
+        return WeatherQuery(location=resolved.name, date="forecast" if forecast else ("current" if current else "today"), timezone=resolved.timezone)
 
     @staticmethod
     def _format_answer(data: WeatherData) -> str:
@@ -107,3 +119,17 @@ class WeatherAgent:
         if data.precipitation_probability_percent is not None:
             parts.append(f"降雨概率{data.precipitation_probability_percent}%")
         return "，".join(parts) + "。"
+
+    @staticmethod
+    def _format_forecast(data: ForecastData) -> str:
+        parts = [f"{data.location}未来{len(data.days)}天天气预报"]
+        for day in data.days:
+            values = [day.date]
+            if day.weather_description:
+                values.append(day.weather_description)
+            if day.temperature_min_c is not None and day.temperature_max_c is not None:
+                values.append(f"{day.temperature_min_c:g}～{day.temperature_max_c:g}°C")
+            if day.precipitation_probability_percent is not None:
+                values.append(f"降雨概率{day.precipitation_probability_percent}%")
+            parts.append(f"{values[0]}：{'，'.join(values[1:])}")
+        return "；".join(parts) + "。"

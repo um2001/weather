@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天气雷达 · Weather Agent</title>
+  <link rel="stylesheet" href="/web/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="brand"><span class="pulse"></span>天气雷达</div>
+      <p class="eyebrow">REAL-TIME WEATHER BRIEF</p>
+      <h1>把天空的变化，<br><em>说清楚。</em></h1>
+      <p class="lede">输入城市、天气问题，或直接说“上海未来 3 天”。<br>我会用实时数据给你一份简洁的出行判断。</p>
+    </section>
+    <section class="console">
+      <div id="messages" class="messages">
+        <div class="welcome"><span class="dot"></span><span>系统在线 · 等待你的城市</span></div>
+      </div>
+      <form id="chat-form" class="composer">
+        <input id="message" autocomplete="off" placeholder="例如：杭州今天适合出门吗？" required>
+        <button type="submit">查询天气 <span>↗</span></button>
+      </form>
+      <div class="suggestions">
+        <button data-text="上海今天会下雨吗？">上海 · 今天</button>
+        <button data-text="北京未来3天天气">北京 · 未来 3 天</button>
+        <button data-text="魔都现在多少度？">魔都 · 当前</button>
+      </div>
+    </section>
+  </main>
+  <script src="/web/app.js"></script>
+</body>
+</html>

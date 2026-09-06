@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from ..errors import WeatherDataInvalid, WeatherServiceUnavailable
-from ..schemas import WeatherData, WeatherQuery
+from ..schemas import DailyForecast, ForecastData, WeatherData, WeatherQuery
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,36 @@ class WttrProvider:
         )
         return data
 
+    def get_forecast(self, query: WeatherQuery) -> ForecastData:
+        url = f"{self.base_url}/{query.location}"
+        started = perf_counter()
+        try:
+            if self._client is not None:
+                response = self._client.get(
+                    url, params={"format": "j1", "num_of_days": query.days}, timeout=self.timeout
+                )
+            else:
+                with httpx.Client(timeout=self.timeout) as client:
+                    response = client.get(url, params={"format": "j1", "num_of_days": query.days})
+            response.raise_for_status()
+            payload = response.json()
+            forecasts = self._parse_forecast(payload, query)
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
+            logger.warning(
+                "forecast request failed provider=wttr location=%s error=%s duration_ms=%.1f",
+                query.location,
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
+            raise WeatherServiceUnavailable("天气预报服务暂时不可用") from exc
+        logger.info(
+            "forecast request succeeded provider=wttr location=%s days=%s duration_ms=%.1f",
+            query.location,
+            len(forecasts.days),
+            (perf_counter() - started) * 1000,
+        )
+        return forecasts
+
     @staticmethod
     def _parse(payload: dict[str, Any], query: WeatherQuery) -> WeatherData:
         current = payload["current_condition"][0]
@@ -72,4 +102,25 @@ class WttrProvider:
             wind_speed_kmh=float(current["windspeedKmph"]) if current.get("windspeedKmph") is not None else None,
             precipitation_probability_percent=int(precip) if precip is not None else None,
             source="wttr.in",
+            timezone=query.timezone,
         )
+
+    @staticmethod
+    def _parse_forecast(payload: dict[str, Any], query: WeatherQuery) -> ForecastData:
+        days = []
+        for item in payload["weather"][: query.days]:
+            hourly = item.get("hourly", [{}])[0]
+            desc = hourly.get("weatherDesc", [{}])[0].get("value")
+            precip = hourly.get("chanceofrain") or item.get("chanceofrain")
+            days.append(
+                DailyForecast(
+                    date=str(item["date"]),
+                    weather_description=desc,
+                    temperature_min_c=float(item["mintempC"]) if item.get("mintempC") is not None else None,
+                    temperature_max_c=float(item["maxtempC"]) if item.get("maxtempC") is not None else None,
+                    precipitation_probability_percent=int(precip) if precip is not None else None,
+                )
+            )
+        if not days:
+            raise ValueError("missing forecast days")
+        return ForecastData(location=query.location, timezone=query.timezone, days=days, source="wttr.in")

@@ -44,11 +44,11 @@ class OpenAICompatibleWeatherLLM:
             content=(
                 "你是天气查询意图解析器。结合对话历史判断当前用户消息。"
                 "kind=weather 表示查询当前或今天的城市天气；缺少地点时 location=null。"
-                "明天、后天、多日预报、长期气候等当前不支持，kind=unsupported。"
+                "明天、后天、多日预报可用 kind=weather 且 date=forecast；长期气候等当前不支持。"
                 "与天气无关则 kind=other。不要猜测历史中没有出现的地点。"
                 "只返回 JSON，格式为："
                 '{"kind":"weather|unsupported|other","location":"城市或null",'
-                '"date":"current|today","metrics":[]}。'
+                '"date":"current|today|forecast","days":3,"metrics":[]}。'
             )
         )
         started = perf_counter()
