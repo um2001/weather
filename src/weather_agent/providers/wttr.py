@@ -58,12 +58,10 @@ class WttrProvider:
         started = perf_counter()
         try:
             if self._client is not None:
-                response = self._client.get(
-                    url, params={"format": "j1", "num_of_days": query.days}, timeout=self.timeout
-                )
+                response = self._client.get(url, params={"format": "j1"}, timeout=self.timeout)
             else:
                 with httpx.Client(timeout=self.timeout) as client:
-                    response = client.get(url, params={"format": "j1", "num_of_days": query.days})
+                    response = client.get(url, params={"format": "j1"})
             response.raise_for_status()
             payload = response.json()
             forecasts = self._parse_forecast(payload, query)

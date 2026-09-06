@@ -47,8 +47,11 @@ def test_wttr_provider_maps_invalid_payload():
 
 @respx.mock
 def test_wttr_provider_parses_forecast():
-    respx.get("https://wttr.in/上海").mock(return_value=httpx.Response(200, json=FORECAST_PAYLOAD))
+    route = respx.get("https://wttr.in/上海", params={"format": "j1"}).mock(
+        return_value=httpx.Response(200, json=FORECAST_PAYLOAD)
+    )
     data = WttrProvider().get_forecast(WeatherQuery(location="上海", date="forecast", days=3))
+    assert route.called
     assert len(data.days) == 3
     assert data.days[0].temperature_max_c == 26
     assert data.days[2].precipitation_probability_percent == 60
