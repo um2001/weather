@@ -21,9 +21,19 @@ _ALIASES = {
     "巴黎": ("巴黎", "Europe/Paris"),
 }
 
+_ATTRACTIONS = {
+    "颐和园": ("北京", "Asia/Shanghai"), "故宫": ("北京", "Asia/Shanghai"),
+    "天坛": ("北京", "Asia/Shanghai"), "圆明园": ("北京", "Asia/Shanghai"),
+    "西湖": ("杭州", "Asia/Shanghai"), "外滩": ("上海", "Asia/Shanghai"),
+    "兵马俑": ("西安", "Asia/Shanghai"), "鼓浪屿": ("厦门", "Asia/Shanghai"),
+}
+
 
 def resolve_location(value: str) -> ResolvedLocation:
     cleaned = value.strip()
+    if cleaned in _ATTRACTIONS:
+        name, timezone = _ATTRACTIONS[cleaned]
+        return ResolvedLocation(name, timezone)
     if cleaned in _ALIASES:
         name, timezone = _ALIASES[cleaned]
         return ResolvedLocation(name, timezone)

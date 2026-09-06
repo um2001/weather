@@ -1,4 +1,4 @@
 from .base import WeatherProvider
-from .wttr import WttrProvider
+from .qweather import QWeatherProvider
 
-__all__ = ["WeatherProvider", "WttrProvider"]
+__all__ = ["WeatherProvider", "QWeatherProvider"]

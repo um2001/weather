@@ -9,6 +9,11 @@ def test_location_alias_is_normalized_with_timezone():
     assert resolved.timezone == "Asia/Shanghai"
 
 
+def test_attraction_is_mapped_to_city():
+    resolved = resolve_location("颐和园")
+    assert resolved.name == "北京"
+
+
 def test_weather_cache_reuses_value_until_ttl():
     cache = WeatherCache(ttl_seconds=60)
     calls = []

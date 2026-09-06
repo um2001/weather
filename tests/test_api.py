@@ -33,7 +33,8 @@ def test_chat_api_supports_history_follow_up():
     )
 
     assert response.status_code == 200
-    assert response.json() == {"reply": "上海今天24°C。", "status": "success"}
+    assert response.json()["reply"] == "上海今天24°C。"
+    assert response.json()["status"] == "success"
 
 
 def test_chat_api_rejects_blank_message():

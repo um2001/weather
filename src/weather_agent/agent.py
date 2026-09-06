@@ -1,6 +1,7 @@
 import logging
 import re
 from collections.abc import Callable
+from datetime import date, timedelta
 
 from .cache import WeatherCache
 from .errors import LanguageModelError, LanguageModelResponseError, WeatherServiceError
@@ -53,26 +54,38 @@ class WeatherAgent:
         except LanguageModelError:
             return ChatResponse(reply="大模型服务暂时无法使用，请稍后再试。", status="error")
         if intent.kind == "other":
-            return ChatResponse(reply="我目前只支持查询城市的当前或今日天气。", status="unsupported")
+            return ChatResponse(reply="我目前支持城市天气查询和景点旅游建议。", status="unsupported")
         if intent.kind == "unsupported":
             return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持该天气需求。", status="unsupported")
         if not intent.location or not intent.location.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
         resolved = resolve_location(intent.location)
         days = max(3, min(7, intent.days)) if intent.date == "forecast" else 3
+        target_date = intent.target_date or self._relative_date(user_input)
         query = WeatherQuery(
             location=resolved.name,
-            date=intent.date,
+            date="today" if target_date else intent.date,
             metrics=intent.metrics,
             days=days,
             timezone=resolved.timezone,
+            target_date=target_date,
         )
-        return self._fetch_and_answer(query, user_input, history)
+        return self._fetch_and_answer(query, user_input, history, travel=intent.kind == "travel")
 
     def _fetch_and_answer(
-        self, query: WeatherQuery, user_input: str, history: list[ChatMessage]
+        self, query: WeatherQuery, user_input: str, history: list[ChatMessage], travel: bool = False
     ) -> ChatResponse:
         try:
+            if query.target_date:
+                data = self.cache.get_or_set(query, lambda: self.provider.get_weather(query))
+                if self.language_model:
+                    try:
+                        reply = self.language_model.generate_answer(user_input, history, data)
+                    except LanguageModelError:
+                        reply = self._format_travel_answer(data) if travel else self._format_answer(data)
+                else:
+                    reply = self._format_travel_answer(data) if travel else self._format_answer(data)
+                return ChatResponse(reply=reply, status="success", weather=data)
             if query.date == "forecast":
                 forecast = self.cache.get_or_set(query, lambda: self.provider.get_forecast(query))
                 if self.language_model:
@@ -82,7 +95,7 @@ class WeatherAgent:
                         reply = self._format_forecast(forecast)
                 else:
                     reply = self._format_forecast(forecast)
-                return ChatResponse(reply=reply, status="success")
+                return ChatResponse(reply=reply, status="success", weather=forecast)
             data = self.cache.get_or_set(query, lambda: get_weather(query, self.provider))
         except WeatherServiceError:
             logger.info("weather query failed location=%s", query.location)
@@ -94,15 +107,46 @@ class WeatherAgent:
                 reply = self._format_answer(data)
         else:
             reply = self._format_answer(data)
-        return ChatResponse(reply=reply, status="success")
+        return ChatResponse(reply=reply, status="success", weather=data)
+
+    @staticmethod
+    def _relative_date(text: str) -> str | None:
+        today = date.today()
+        if "后天" in text:
+            return str(today + timedelta(days=2))
+        if "明天" in text:
+            return str(today + timedelta(days=1))
+        return None
+
+    @staticmethod
+    def _format_travel_answer(data: WeatherData) -> str:
+        description = data.weather_description or "天气情况待确认"
+        temperature = ""
+        if data.temperature_min_c is not None and data.temperature_max_c is not None:
+            temperature = f"，气温{data.temperature_min_c:g}～{data.temperature_max_c:g}°C"
+        rain = f"，降雨概率{data.precipitation_probability_percent}%" if data.precipitation_probability_percent is not None else ""
+        advice = "适合安排户外游览，建议根据体感准备饮水和防晒用品。"
+        if data.precipitation_probability_percent is not None and data.precipitation_probability_percent >= 50:
+            advice = "建议携带雨具，并准备室内或短途备用方案。"
+        return f"{data.location}（{data.date}）{description}{temperature}{rain}。{advice}"
 
     @staticmethod
     def _is_weather_request(text: str) -> bool:
-        return any(word in text for word in ("天气", "下雨", "温度", "湿度", "风速", "降雨"))
+        return any(word in text for word in ("天气", "下雨", "温度", "湿度", "风速", "降雨", "旅游", "出行", "景点", "适合"))
 
     @staticmethod
     def _extract_query(text: str) -> WeatherQuery | None:
         cleaned = re.sub(r"[，。！？?！,.]", "", text).strip()
+        for attraction in ("颐和园", "故宫", "天坛", "圆明园", "西湖", "外滩", "兵马俑", "鼓浪屿"):
+            if attraction in cleaned:
+                resolved = resolve_location(attraction)
+                target_date = WeatherAgent._relative_date(cleaned)
+                return WeatherQuery(
+                    location=resolved.name,
+                    date="today" if target_date else "today",
+                    timezone=resolved.timezone,
+                    target_date=target_date,
+                )
         normalized = re.sub(r"^(请问|帮我查一下|帮我查|查询|查一下|查)\s*", "", cleaned).strip()
         normalized = re.sub(r"(?:明天|后天|下周|未来\s*[3３]\s*天|未来\s*[7７]\s*天|多日)", "", normalized).strip()
         match = re.search(r"(?:今天|今日|现在|当前|天气|会下雨|下雨)", normalized)

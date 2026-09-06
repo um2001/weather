@@ -1,0 +1,88 @@
+# 晴旅：天气旅行助手
+
+一个基于 FastAPI、原生 JavaScript 和大模型的中文天气旅行助手。用户可以查询城市天气，也可以询问“后天去颐和园适合吗”这类问题。程序先从和风天气获取真实天气，再让大模型基于天气数据生成出行建议。
+
+## 功能
+
+- 查询当前、今日和未来几天天气
+- 识别明天、后天等自然语言日期
+- 支持常见景点映射，例如颐和园、故宫、西湖、外滩
+- 根据温度、降雨概率和天气状况生成旅游建议
+- SQLite 保存单用户会话历史和天气快照
+- 新建、切换、查看和删除会话
+- 响应式网页界面，支持桌面和移动端
+
+## 技术栈
+
+- Python 3.11+
+- FastAPI + Uvicorn
+- Pydantic
+- SQLite
+- 和风天气 API
+- OpenAI 兼容大模型 API
+- 原生 HTML、CSS、JavaScript
+- pytest、respx
+
+## 配置
+
+在启动前设置环境变量：
+
+```text
+QWEATHER_API_KEY=你的和风天气Key
+LLM_API_KEY=你的模型Key
+LLM_MODEL=模型名称
+LLM_BASE_URL=https://你的兼容接口/v1
+WEATHER_DB_PATH=weather_agent.db
+```
+
+`LLM_BASE_URL` 可选；不设置时使用模型 SDK 默认地址。API Key 只在后端使用，不会返回给浏览器。
+
+## 安装和运行
+
+```powershell
+uv sync
+uv run weather-api
+```
+
+打开 <http://127.0.0.1:8000/> 使用网页，API 文档位于 `/docs`，健康检查位于 `/health`。
+
+## 示例问题
+
+- `上海今天会下雨吗？`
+- `后天去颐和园旅游适合吗？`
+- `明天去故宫需要带伞吗？`
+- `周末去西湖，上午还是下午更合适？`
+
+## API
+
+- `POST /api/chat`：发送消息，可带 `conversation_id`
+- `GET /api/conversations`：会话列表
+- `POST /api/conversations`：新建会话
+- `GET /api/conversations/{id}`：会话详情和消息
+- `DELETE /api/conversations/{id}`：删除会话
+
+聊天响应包含 `reply`、`status` 和可选的结构化 `weather` 字段，前端使用该字段渲染天气卡片。
+
+## 测试
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider
+```
+
+测试使用 mock，不依赖真实天气网络。生产使用时请关注和风天气 API 的额度、Key 权限和预报范围；超出可可靠预报范围的日期不会由模型自行猜测。
+
+## 项目结构
+
+```text
+src/weather_agent/
+├── agent.py                 # 意图协调、天气查询和回答生成
+├── api.py                   # FastAPI 和会话接口
+├── database.py              # SQLite 会话存储
+├── llm.py                   # OpenAI 兼容模型适配
+├── location.py              # 城市别名和常见景点映射
+├── providers/qweather.py    # 和风天气适配器
+└── web/                     # 原生前端页面
+tests/                       # 单元测试和 API 测试
+```
+
+当前版本是单用户模式，不包含登录和权限系统。若部署给多个用户，下一步应增加用户表、认证和按用户隔离会话。

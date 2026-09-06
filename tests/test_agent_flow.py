@@ -119,3 +119,13 @@ def test_agent_falls_back_to_standardized_data_when_answer_model_fails():
 
     assert response.status == "success"
     assert "北京" in response.reply and "22°C" in response.reply
+
+
+def test_agent_supports_travel_date_and_returns_weather_payload():
+    provider = FakeProvider()
+    response = WeatherAgent(provider).respond("后天去颐和园旅游适合吗？")
+
+    assert response.status == "success"
+    assert provider.queries[0].location == "北京"
+    assert provider.queries[0].target_date is not None
+    assert response.weather is not None

@@ -44,12 +44,13 @@ class OpenAICompatibleWeatherLLM:
         system = SystemMessage(
             content=(
                 "你是天气查询意图解析器。结合对话历史判断当前用户消息。"
-                "kind=weather 表示查询当前或今天的城市天气；缺少地点时 location=null。"
-                "明天、后天、多日预报可用 kind=weather 且 date=forecast；长期气候等当前不支持。"
+                "kind=weather 表示普通天气查询，kind=travel 表示去景点旅游并需要出行建议；缺少地点时 location=null。"
+                "明天、后天、多日预报可用 date=forecast，并尽量填写 target_date 的 ISO 日期。长期气候等当前不支持。"
                 "与天气无关则 kind=other。不要猜测历史中没有出现的地点。"
                 "只返回 JSON，格式为："
-                '{"kind":"weather|unsupported|other","location":"城市或null",'
-                '"date":"current|today|forecast","days":3,"metrics":[]}。'
+                '{"kind":"weather|travel|unsupported|other","location":"城市或null",'
+                '"attraction":"景点或null","attractions":[],"date":"current|today|forecast",'
+                '"target_date":"YYYY-MM-DD或null","days":3,"metrics":[]}。'
             )
         )
         started = perf_counter()
@@ -134,8 +135,9 @@ class OpenAICompatibleWeatherLLM:
     def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData) -> str:
         system = SystemMessage(
             content=(
-                "你是中文天气助手。只能根据提供的标准天气数据回答当前问题，"
-                "不得补充或猜测数据中没有的信息。回答简洁、自然，并明确地点和日期。"
+                "你是中文天气与旅行助手。只能根据提供的标准天气数据回答当前问题，"
+                "不得补充或猜测数据中没有的信息。若用户询问景点旅游，请给出是否适合、推荐时段、携带物品和风险提醒。"
+                "回答简洁、自然，并明确地点和日期。"
                 "只输出最终回答，不要输出<think>、Markdown代码块或分析过程。"
             )
         )

@@ -19,6 +19,7 @@ class WeatherCache:
             tuple(query.metrics),
             query.days,
             query.timezone,
+            query.target_date,
         )
         now = monotonic()
         cached = self._items.get(key)

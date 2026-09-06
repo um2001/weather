@@ -1,10 +1,10 @@
-from weather_agent.providers.wttr import WttrProvider
+from weather_agent.schemas import WeatherData
 from weather_agent.tools import create_get_weather_tool
 
 
 class FakeProvider:
     def get_weather(self, query):
-        return WttrProvider._parse({"current_condition": [{"temp_C": "18"}], "weather": [{}]}, query)
+        return WeatherData(location=query.location, date=query.date, temperature_c=18, source="fake")
 
 
 def test_get_weather_tool_returns_standardized_dict():
