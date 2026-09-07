@@ -4,7 +4,7 @@ from langchain_core.runnables import RunnableLambda
 
 from weather_agent.errors import ConfigurationError, LanguageModelError, LanguageModelResponseError
 from weather_agent.llm import OpenAICompatibleWeatherLLM
-from weather_agent.schemas import ChatMessage, WeatherData
+from weather_agent.schemas import ChatMessage, DailyForecast, ForecastData, WeatherData
 
 
 def test_llm_parses_json_intent_and_includes_history():
@@ -106,6 +106,19 @@ def test_llm_parses_model_resolved_city_for_west_lake():
     assert intent.attraction == "西湖"
 
 
+def test_llm_recent_weather_prompt_requests_today_and_three_day_trend():
+    captured = []
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(lambda messages: captured.extend(messages) or AIMessage(content='{"kind":"weather","location":"哈尔滨","date":"forecast","days":4}'))
+    )
+
+    intent = llm.extract_intent("哈尔滨近期天气怎么样？", [])
+
+    assert intent.date == "forecast"
+    assert intent.days == 4
+    assert "今天加未来3天趋势" in captured[0].content
+
+
 def test_llm_answer_receives_only_standard_weather_data():
     captured = []
 
@@ -118,6 +131,22 @@ def test_llm_answer_receives_only_standard_weather_data():
 
     assert llm.generate_answer("穿什么？", [], data) == "上海今天24°C。"
     assert '"temperature_c":24.0' in captured[-1].content
+
+
+def test_llm_recent_weather_answer_prompt_requires_structured_trend():
+    captured = []
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(lambda messages: captured.extend(messages) or AIMessage(content="哈尔滨近期晴朗，昼夜温差较大。"))
+    )
+    forecast = ForecastData(
+        location="哈尔滨",
+        source="fake",
+        days=[DailyForecast(date="2026-09-07", weather_description="晴", temperature_min_c=7, temperature_max_c=18)],
+    )
+
+    llm.generate_answer("哈尔滨近期天气怎么样？", [], forecast)
+
+    assert "今日”和“未来三天”" in captured[0].content
 
 
 def test_llm_removes_thinking_tags_from_final_answer():
