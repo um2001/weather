@@ -4,6 +4,16 @@ const messages = document.querySelector('#messages');
 const conversations = document.querySelector('#conversation-list');
 const title = document.querySelector('#session-title');
 let conversationId = Number(localStorage.getItem('weather-conversation-id')) || null;
+const welcomeCardTemplate = messages.querySelector('.welcome-card')?.cloneNode(true);
+
+function showWelcomeCard() {
+  messages.innerHTML = '';
+  if (welcomeCardTemplate) messages.appendChild(welcomeCardTemplate.cloneNode(true));
+}
+
+function hideWelcomeCard() {
+  messages.querySelector('.welcome-card')?.remove();
+}
 
 function addMessage(role, text, weather) {
   const node = document.createElement('article');
@@ -70,11 +80,16 @@ async function loadConversation(id) {
   localStorage.setItem('weather-conversation-id', id);
   title.textContent = data.title;
   messages.innerHTML = '';
-  data.messages.forEach((item) => addMessage(item.role, item.content, item.weather));
+  if (data.messages.length === 0) {
+    showWelcomeCard();
+  } else {
+    data.messages.forEach((item) => addMessage(item.role, item.content, item.weather));
+  }
   await refreshConversations();
 }
 
 async function ask(text) {
+  hideWelcomeCard();
   addMessage('user', text);
   input.value = '';
   const submit = form.querySelector('button[type="submit"]');
@@ -115,11 +130,14 @@ document.querySelector('#new-chat').onclick = async () => {
   conversationId = data.id;
   localStorage.setItem('weather-conversation-id', conversationId);
   title.textContent = data.title;
-  messages.innerHTML = '';
+  showWelcomeCard();
   document.querySelector('#message').focus();
   await refreshConversations();
 };
 form.addEventListener('submit', (event) => { event.preventDefault(); if (input.value.trim()) ask(input.value.trim()); });
-document.querySelectorAll('[data-text]').forEach((button) => button.addEventListener('click', () => ask(button.dataset.text)));
+messages.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-text]');
+  if (button) ask(button.dataset.text);
+});
 refreshConversations();
 if (conversationId) loadConversation(conversationId);

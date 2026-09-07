@@ -24,3 +24,13 @@ def test_web_chat_handles_stale_conversation_and_reenables_submit():
     assert "response.status === 404 && conversationId" in response.text
     assert "submit.disabled = true" in response.text
     assert "submit.disabled = false" in response.text
+
+
+def test_web_chat_restores_welcome_card_for_empty_sessions_and_hides_on_first_message():
+    response = TestClient(app).get("/web/app.js")
+
+    assert "const welcomeCardTemplate" in response.text
+    assert "function showWelcomeCard()" in response.text
+    assert "if (data.messages.length === 0)" in response.text
+    assert "hideWelcomeCard();" in response.text
+    assert "messages.addEventListener('click'" in response.text
