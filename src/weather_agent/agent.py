@@ -54,7 +54,11 @@ class WeatherAgent:
         except LanguageModelError:
             return ChatResponse(reply="大模型服务暂时无法使用，请稍后再试。", status="error")
         if intent.kind == "other":
-            return ChatResponse(reply="我目前支持城市天气查询和景点旅游建议。", status="unsupported")
+            try:
+                reply = self.language_model.chat(user_input, history)
+            except LanguageModelError:
+                return ChatResponse(reply="大模型服务暂时无法使用，请稍后再试。", status="error")
+            return ChatResponse(reply=reply, status="success")
         if intent.kind == "unsupported":
             return ChatResponse(reply="目前仅支持查询当前或今天的天气，暂不支持该天气需求。", status="unsupported")
         attraction = intent.attraction or (intent.attractions[0] if intent.attractions else None)

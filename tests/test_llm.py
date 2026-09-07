@@ -158,6 +158,19 @@ def test_llm_removes_thinking_tags_from_final_answer():
     assert llm.generate_answer("上海天气", [], data) == "上海今天晴。"
 
 
+def test_llm_chat_uses_history_and_returns_clean_answer():
+    captured = []
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(lambda messages: captured.extend(messages) or AIMessage(content="<think>内部</think>你好！"))
+    )
+
+    reply = llm.chat("你好", [ChatMessage(role="user", content="我叫小明")])
+
+    assert reply == "你好！"
+    assert captured[0].content.startswith("你是一个友好")
+    assert any(message.content == "我叫小明" for message in captured)
+
+
 def test_llm_requires_environment_configuration(monkeypatch):
     monkeypatch.delenv("LLM_API_KEY", raising=False)
     monkeypatch.delenv("LLM_MODEL", raising=False)

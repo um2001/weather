@@ -91,6 +91,7 @@ class FakeLanguageModel:
     def __init__(self, intent):
         self.intent = intent
         self.answer_calls = []
+        self.chat_calls = []
 
     def extract_intent(self, message, history):
         self.extract_call = (message, history)
@@ -100,6 +101,10 @@ class FakeLanguageModel:
         self.answer_calls.append((message, history, data))
         temperature = getattr(data, "temperature_c", 0)
         return f"模型回答：{data.location}{temperature:g}°C"
+
+    def chat(self, message, history):
+        self.chat_calls.append((message, history))
+        return f"普通聊天：{message}"
 
 
 def test_agent_uses_model_to_understand_natural_language():
@@ -187,8 +192,21 @@ def test_agent_does_not_call_weather_provider_for_non_weather_intent():
 
     response = WeatherAgent(provider, language_model=model).respond("给我讲个笑话")
 
-    assert response.status == "unsupported"
+    assert response.status == "success"
+    assert response.reply == "普通聊天：给我讲个笑话"
     assert provider.queries == []
+
+
+def test_agent_returns_error_when_chat_model_fails():
+    class FailingChatModel(FakeLanguageModel):
+        def chat(self, message, history):
+            raise LanguageModelError()
+
+    model = FailingChatModel(WeatherIntent(kind="other"))
+    response = WeatherAgent(FakeProvider(), language_model=model).respond("你好")
+
+    assert response.status == "error"
+    assert "暂时无法使用" in response.reply
 
 
 def test_agent_falls_back_to_standardized_data_when_answer_model_fails():

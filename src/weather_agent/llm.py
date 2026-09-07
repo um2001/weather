@@ -19,6 +19,8 @@ class WeatherLanguageModel(Protocol):
 
     def generate_answer(self, message: str, history: list[ChatMessage], data: WeatherData | ForecastData) -> str: ...
 
+    def chat(self, message: str, history: list[ChatMessage]) -> str: ...
+
 
 class OpenAICompatibleWeatherLLM:
     def __init__(self, model: ChatOpenAI):
@@ -160,6 +162,29 @@ class OpenAICompatibleWeatherLLM:
         if not isinstance(content, str) or not content.strip():
             raise LanguageModelError("大模型返回了空回答")
         logger.info("language model answer generated duration_ms=%.1f", (perf_counter() - started) * 1000)
+        return self._clean_answer(content)
+
+    def chat(self, message: str, history: list[ChatMessage]) -> str:
+        system = SystemMessage(
+            content=(
+                "你是一个友好、准确、简洁的中文通用助手。回答用户当前问题，"
+                "可以结合对话历史，但不要编造事实。只输出最终回答，不要输出<think>、Markdown代码块或分析过程。"
+            )
+        )
+        started = perf_counter()
+        try:
+            result = self.model.invoke([system, *self._history_messages(history), HumanMessage(content=message)])
+        except Exception as exc:
+            logger.warning(
+                "language model chat generation failed error=%s duration_ms=%.1f",
+                type(exc).__name__,
+                (perf_counter() - started) * 1000,
+            )
+            raise LanguageModelError("大模型暂时无法生成回答") from exc
+        content = result.content
+        if not isinstance(content, str) or not content.strip():
+            raise LanguageModelError("大模型返回了空回答")
+        logger.info("language model chat generated duration_ms=%.1f", (perf_counter() - started) * 1000)
         return self._clean_answer(content)
 
     @staticmethod

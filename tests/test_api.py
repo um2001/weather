@@ -21,6 +21,14 @@ class FakeLanguageModel:
         return f"{data.location}今天{data.temperature_c:g}°C。"
 
 
+class ChatLanguageModel(FakeLanguageModel):
+    def extract_intent(self, message, history):
+        return WeatherIntent(kind="other")
+
+    def chat(self, message, history):
+        return f"普通回答：{message}"
+
+
 def test_chat_api_supports_history_follow_up():
     app.state.weather_agent = WeatherAgent(FakeProvider(), language_model=FakeLanguageModel())
     response = TestClient(app).post(
@@ -37,6 +45,15 @@ def test_chat_api_supports_history_follow_up():
     assert response.status_code == 200
     assert response.json()["reply"] == "上海今天24°C。"
     assert response.json()["status"] == "success"
+
+
+def test_chat_api_supports_non_weather_chat_without_weather_payload():
+    app.state.weather_agent = WeatherAgent(FakeProvider(), language_model=ChatLanguageModel())
+
+    response = TestClient(app).post("/api/chat", json={"message": "给我讲个笑话"})
+
+    assert response.status_code == 200
+    assert response.json() == {"reply": "普通回答：给我讲个笑话", "status": "success"}
 
 
 def test_chat_api_rejects_blank_message():
