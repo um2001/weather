@@ -118,7 +118,7 @@ uv run weather-agent
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 ```
 
-当前共 58 项测试，覆盖意图解析、日期识别、缓存、地点解析、错误回退、SQLite 会话、FastAPI、网页资源和 CLI 退出流程。交付前应确认测试通过，并访问 `/health` 做启动冒烟检查。
+当前共 61 项测试，覆盖意图解析、日期识别、缓存、地点解析、错误回退、普通聊天、SQLite 会话、FastAPI、网页资源和 CLI 退出流程。交付前应确认测试通过，并访问 `/health` 做启动冒烟检查。
 
 ## 项目结构
 
