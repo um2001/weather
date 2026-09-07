@@ -25,12 +25,33 @@ function addMessage(role, text, weather) {
 function renderConversationList(items) {
   conversations.innerHTML = '';
   items.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'conversation-row';
     const button = document.createElement('button');
     button.className = item.id === conversationId ? 'conversation active' : 'conversation';
     button.textContent = item.title;
     button.onclick = () => loadConversation(item.id);
-    conversations.appendChild(button);
+    const remove = document.createElement('button');
+    remove.className = 'conversation-delete';
+    remove.type = 'button';
+    remove.title = '删除会话';
+    remove.textContent = '×';
+    remove.onclick = (event) => { event.stopPropagation(); deleteConversation(item.id); };
+    row.append(button, remove);
+    conversations.appendChild(row);
   });
+}
+
+async function deleteConversation(id) {
+  if (!window.confirm('确定删除这个会话吗？删除后无法恢复。')) return;
+  const response = await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
+  if (!response.ok) return;
+  if (id === conversationId) {
+    localStorage.removeItem('weather-conversation-id');
+    window.location.reload();
+    return;
+  }
+  await refreshConversations();
 }
 
 async function refreshConversations() {

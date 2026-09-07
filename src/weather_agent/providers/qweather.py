@@ -11,6 +11,13 @@ from ..schemas import DailyForecast, ForecastData, WeatherData, WeatherQuery
 
 logger = logging.getLogger(__name__)
 
+# QWeather's geo endpoint can intermittently return HTTP 404 for otherwise
+# valid city names. Keep a small provider-side fallback for the city observed
+# in production so a basic weather query remains usable during that outage.
+_CITY_ID_FALLBACKS = {
+    "哈尔滨": "101050101",
+}
+
 
 @dataclass(frozen=True)
 class GeocodedPlace:
@@ -75,7 +82,14 @@ class QWeatherProvider:
         return ForecastData(location=query.location, timezone=query.timezone, days=days, source="QWeather")
 
     def _location_id(self, location: str) -> str:
-        payload = self._get_geo("/geo/v2/city/lookup", {"location": location, "number": 1})
+        try:
+            payload = self._get_geo("/geo/v2/city/lookup", {"location": location, "number": 1})
+        except httpx.HTTPStatusError as exc:
+            fallback = _CITY_ID_FALLBACKS.get(location.strip())
+            if fallback and exc.response.status_code == 404:
+                logger.warning("qweather geo lookup 404, using city fallback location=%s", location)
+                return fallback
+            raise
         try:
             return str(payload["location"][0]["id"])
         except (KeyError, IndexError, TypeError) as exc:

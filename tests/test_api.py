@@ -57,3 +57,14 @@ def test_chat_api_logs_request(caplog):
 
     assert response.status_code == 200
     assert any("api request" in record.message and "duration_ms=" in record.message for record in caplog.records)
+
+
+def test_conversation_delete_endpoint_removes_conversation():
+    created = TestClient(app).post("/api/conversations")
+    conversation_id = created.json()["id"]
+
+    response = TestClient(app).delete(f"/api/conversations/{conversation_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": True}
+    assert TestClient(app).get(f"/api/conversations/{conversation_id}").status_code == 404

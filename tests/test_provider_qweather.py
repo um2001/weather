@@ -34,6 +34,22 @@ def test_qweather_provider_parses_current_response():
 
 
 @respx.mock
+def test_qweather_provider_uses_harbin_fallback_when_geo_returns_404():
+    geo = respx.get("https://geoapi.qweather.com/geo/v2/city/lookup").mock(
+        return_value=httpx.Response(404)
+    )
+    weather = respx.get("https://devapi.qweather.com/v7/weather/now").mock(
+        return_value=httpx.Response(200, json={"code": "200", "now": {"temp": "18", "text": "晴"}})
+    )
+
+    data = QWeatherProvider("test-key").get_weather(WeatherQuery(location="哈尔滨", date="current"))
+
+    assert geo.called
+    assert weather.calls[0].request.url.params["location"] == "101050101"
+    assert data.location == "哈尔滨"
+
+
+@respx.mock
 def test_qweather_provider_resolves_arbitrary_poi_and_uses_coordinates():
     poi = respx.get("https://geoapi.qweather.com/geo/v2/poi/lookup").mock(
         return_value=httpx.Response(200, json={"code": "200", "poi": [{"name": "上海迪士尼度假区", "adm2": "上海市", "lat": "31.1434", "lon": "121.6574"}]})
