@@ -2,11 +2,13 @@ import os
 
 from .agent import WeatherAgent
 from .cache import WeatherCache
+from .config import load_local_env
 from .llm import OpenAICompatibleWeatherLLM
 from .providers.qweather import QWeatherProvider
 
 
 def create_weather_agent() -> WeatherAgent:
+    load_local_env()
     api_key = os.getenv("QWEATHER_API_KEY")
     if not api_key:
         from .errors import ConfigurationError

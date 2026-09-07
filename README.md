@@ -43,7 +43,7 @@ WEATHER_DB_PATH=src/weather_agent/weather_agent.db
 
 ### VS Code 一键启动
 
-首次使用时，将 `.env.example` 复制为 `.env`，填写自己的 Key 与模型名称。`.env` 已被 Git 忽略；之后在 VS Code 中按 `F5` 并选择“启动天气助手”，即可自动加载配置并启动服务，无需每次在终端设置环境变量。
+首次使用时，将 `.env.example` 复制为 `.env`，填写自己的 Key 与模型名称。请勿直接填写 `.env.example`，它是会提交到 Git 的无密钥模板；`.env` 已被 Git 忽略。之后在 VS Code 中按 `F5` 并选择“启动天气助手”，即可自动加载配置并启动服务，无需每次在终端设置环境变量。通过 `weather-api` 或 `uv run weather-api` 启动时也会自动读取项目根目录的 `.env`。
 
 和风天气的 Key 必须授权对应的 API Host：免费开发版通常使用 `devapi.qweather.com`，商业版按控制台分配的专属 Host 配置。若只有一个专属 Host，设置 `QWEATHER_API_HOST` 即可，地理查询会自动复用它；只有天气和地理服务分配了不同域名时才设置 `QWEATHER_GEO_HOST`。若日志出现 `invalid-host`，请在和风控制台确认 Key 已授权该 Host。
 
