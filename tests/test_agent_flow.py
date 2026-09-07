@@ -17,6 +17,8 @@ class FakeProvider:
 
     def get_forecast(self, query):
         self.forecast_queries.append(query)
+        if self.error:
+            raise WeatherServiceUnavailable()
         from weather_agent.schemas import DailyForecast, ForecastData
 
         return ForecastData(
@@ -56,6 +58,17 @@ def test_agent_does_not_fabricate_when_service_fails():
     answer = WeatherAgent(FakeProvider(error=True)).answer("北京天气怎么样")
     assert "暂时无法使用" in answer
     assert "°C" not in answer
+
+
+def test_agent_defaults_generic_weather_question_to_today_plus_three_day_forecast():
+    provider = FakeProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨"))
+
+    response = WeatherAgent(provider, language_model=model).respond("哈尔滨天气怎么样？")
+
+    assert response.status == "success"
+    assert provider.queries == []
+    assert provider.forecast_queries[0].days == 4
 
 
 def test_agent_rejects_future_forecast_without_calling_provider():
@@ -110,7 +123,7 @@ def test_agent_does_not_geocode_ordinary_city_weather_as_poi():
     assert provider.queries[0].location == "哈尔滨"
 
 
-def test_agent_interprets_recent_weather_as_three_day_forecast():
+def test_agent_interprets_recent_weather_as_today_plus_three_day_forecast():
     provider = FakeProvider()
     model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨", date="current"))
 
@@ -119,7 +132,7 @@ def test_agent_interprets_recent_weather_as_three_day_forecast():
     assert response.status == "success"
     assert provider.queries == []
     assert provider.forecast_queries[0].location == "哈尔滨"
-    assert provider.forecast_queries[0].days == 3
+    assert provider.forecast_queries[0].days == 4
 
 
 def test_agent_uses_provider_geocoding_for_arbitrary_attraction():
