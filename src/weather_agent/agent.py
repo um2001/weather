@@ -79,11 +79,13 @@ class WeatherAgent:
                 return ChatResponse(reply="无法确认这个景点的位置，请补充所在城市。", status="clarification")
         else:
             timezone = resolved.timezone
-        days = max(3, min(7, intent.days)) if intent.date == "forecast" else 3
-        target_date = intent.target_date or self._relative_date(user_input)
+        recent_forecast = self._is_recent_forecast_request(user_input)
+        query_date = "forecast" if recent_forecast else intent.date
+        days = max(3, min(7, intent.days)) if query_date == "forecast" else 3
+        target_date = None if recent_forecast else (intent.target_date or self._relative_date(user_input))
         query = WeatherQuery(
             location=display_name,
-            date="today" if target_date else intent.date,
+            date="today" if target_date else query_date,
             metrics=intent.metrics,
             days=days,
             timezone=timezone,
@@ -142,6 +144,13 @@ class WeatherAgent:
         return None
 
     @staticmethod
+    def _is_recent_forecast_request(text: str) -> bool:
+        return (
+            any(term in text for term in ("最近", "近几天", "这几天", "这几日", "未来几天"))
+            and not any(term in text for term in ("现在", "当前", "实时"))
+        )
+
+    @staticmethod
     def _format_travel_answer(data: WeatherData) -> str:
         description = data.weather_description or "天气情况待确认"
         temperature = ""
@@ -165,7 +174,7 @@ class WeatherAgent:
     def _extract_query(text: str) -> WeatherQuery | None:
         cleaned = re.sub(r"[，。！？?！,.]", "", text).strip()
         normalized = re.sub(r"^(请问|帮我查一下|帮我查|查询|查一下|查)\s*", "", cleaned).strip()
-        normalized = re.sub(r"(?:明天|后天|下周|未来\s*[3３]\s*天|未来\s*[7７]\s*天|多日)", "", normalized).strip()
+        normalized = re.sub(r"(?:明天|后天|下周|最近|近几天|这几天|这几日|未来几天|未来\s*[3３]\s*天|未来\s*[7７]\s*天|多日)", "", normalized).strip()
         match = re.search(r"(?:今天|今日|现在|当前|天气|会下雨|下雨)", normalized)
         location = normalized[: match.start()] if match else normalized
         location = location.strip()
@@ -173,7 +182,7 @@ class WeatherAgent:
         if not location or location in {"今天", "今日", "现在", "当前"}:
             return None
         current = any(word in cleaned for word in ("现在", "当前"))
-        forecast = any(word in cleaned for word in ("明天", "后天", "下周", "未来3天", "未来三天", "未来7天", "未来七天", "多日"))
+        forecast = WeatherAgent._is_recent_forecast_request(cleaned) or any(word in cleaned for word in ("明天", "后天", "下周", "未来3天", "未来三天", "未来7天", "未来七天", "多日"))
         resolved = resolve_location(location)
         return WeatherQuery(location=resolved.name, date="forecast" if forecast else ("current" if current else "today"), timezone=resolved.timezone)
 

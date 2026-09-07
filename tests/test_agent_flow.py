@@ -7,6 +7,7 @@ class FakeProvider:
     def __init__(self, error=False):
         self.error = error
         self.queries = []
+        self.forecast_queries = []
 
     def get_weather(self, query):
         self.queries.append(query)
@@ -15,6 +16,7 @@ class FakeProvider:
         return WeatherData(location=query.location, date=query.date, temperature_c=22, weather_description="晴", precipitation_probability_percent=10, source="fake")
 
     def get_forecast(self, query):
+        self.forecast_queries.append(query)
         from weather_agent.schemas import DailyForecast, ForecastData
 
         return ForecastData(
@@ -83,7 +85,8 @@ class FakeLanguageModel:
 
     def generate_answer(self, message, history, data):
         self.answer_calls.append((message, history, data))
-        return f"模型回答：{data.location}{data.temperature_c:g}°C"
+        temperature = getattr(data, "temperature_c", 0)
+        return f"模型回答：{data.location}{temperature:g}°C"
 
 
 def test_agent_uses_model_to_understand_natural_language():
@@ -99,12 +102,24 @@ def test_agent_uses_model_to_understand_natural_language():
 
 def test_agent_does_not_geocode_ordinary_city_weather_as_poi():
     provider = FailingPoiProvider()
-    model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨"))
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨", date="current"))
+
+    response = WeatherAgent(provider, language_model=model).respond("哈尔滨当前天气怎么样？")
+
+    assert response.status == "success"
+    assert provider.queries[0].location == "哈尔滨"
+
+
+def test_agent_interprets_recent_weather_as_three_day_forecast():
+    provider = FakeProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨", date="current"))
 
     response = WeatherAgent(provider, language_model=model).respond("哈尔滨最近天气怎么样？")
 
     assert response.status == "success"
-    assert provider.queries[0].location == "哈尔滨"
+    assert provider.queries == []
+    assert provider.forecast_queries[0].location == "哈尔滨"
+    assert provider.forecast_queries[0].days == 3
 
 
 def test_agent_uses_provider_geocoding_for_arbitrary_attraction():
