@@ -117,14 +117,15 @@ def test_agent_uses_provider_geocoding_for_arbitrary_attraction():
     assert provider.queries[0].latitude == 31.1
 
 
-def test_agent_uses_known_attraction_city_when_model_omits_it():
-    provider = FailingPoiProvider()
-    model = FakeLanguageModel(WeatherIntent(kind="travel", location=None, attraction="西湖", target_date="2026-09-09"))
+def test_agent_uses_model_resolved_city_for_attraction_weather():
+    provider = PoiProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="travel", location="杭州", attraction="西湖", target_date="2026-09-09"))
 
     response = WeatherAgent(provider, language_model=model).respond("明天想去西湖玩，有什么建议？")
 
     assert response.status == "success"
-    assert provider.queries[0].location == "杭州"
+    assert provider.queries[0].location == "西湖"
+    assert provider.queries[0].latitude == 31.1
     assert provider.queries[0].target_date is not None
 
 
@@ -176,7 +177,8 @@ def test_agent_falls_back_to_standardized_data_when_answer_model_fails():
 
 def test_agent_supports_travel_date_and_returns_weather_payload():
     provider = FakeProvider()
-    response = WeatherAgent(provider).respond("后天去颐和园旅游适合吗？")
+    model = FakeLanguageModel(WeatherIntent(kind="travel", location="北京", attraction="颐和园"))
+    response = WeatherAgent(provider, language_model=model).respond("后天去颐和园旅游适合吗？")
 
     assert response.status == "success"
     assert provider.queries[0].location == "北京"

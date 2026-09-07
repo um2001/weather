@@ -91,6 +91,21 @@ def test_llm_parses_arbitrary_attraction_and_city():
     assert intent.attraction == "上海迪士尼度假区"
 
 
+def test_llm_parses_model_resolved_city_for_west_lake():
+    llm = OpenAICompatibleWeatherLLM(
+        RunnableLambda(
+            lambda messages: AIMessage(
+                content='{"kind":"travel","location":"杭州","attraction":"西湖","date":"forecast","target_date":"2026-09-08"}'
+            )
+        )
+    )
+
+    intent = llm.extract_intent("明天想去西湖玩，有什么建议？", [])
+
+    assert intent.location == "杭州"
+    assert intent.attraction == "西湖"
+
+
 def test_llm_answer_receives_only_standard_weather_data():
     captured = []
 

@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from .cache import WeatherCache
 from .errors import LanguageModelError, LanguageModelResponseError, WeatherServiceError
 from .llm import WeatherLanguageModel
-from .location import resolve_attraction, resolve_location
+from .location import resolve_location
 from .providers.base import WeatherProvider
 from .schemas import ChatMessage, ChatResponse, ForecastData, WeatherData, WeatherQuery
 from .tools import get_weather
@@ -61,8 +61,7 @@ class WeatherAgent:
         place_name = attraction or intent.location
         if not place_name or not place_name.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
-        known_attraction = resolve_attraction(attraction) if attraction else None
-        resolved = known_attraction if known_attraction and not intent.location else resolve_location(intent.location or place_name)
+        resolved = resolve_location(intent.location or place_name)
         latitude = longitude = None
         display_name = resolved.name
         resolver = getattr(self.provider, "resolve_place", None)
@@ -70,7 +69,7 @@ class WeatherAgent:
         # Ordinary city weather requests should go straight through the city
         # lookup performed by the weather provider; treating every location as
         # a POI makes valid cities such as 哈尔滨 fail with a POI 404.
-        if attraction and resolver is not None and known_attraction is None:
+        if attraction and resolver is not None:
             try:
                 place = resolver(place_name, city=intent.location if attraction else None)
                 display_name = place.name
@@ -165,16 +164,6 @@ class WeatherAgent:
     @staticmethod
     def _extract_query(text: str) -> WeatherQuery | None:
         cleaned = re.sub(r"[，。！？?！,.]", "", text).strip()
-        for attraction in ("颐和园", "故宫", "天坛", "圆明园", "西湖", "外滩", "兵马俑", "鼓浪屿"):
-            if attraction in cleaned:
-                resolved = resolve_location(attraction)
-                target_date = WeatherAgent._relative_date(cleaned)
-                return WeatherQuery(
-                    location=resolved.name,
-                    date="today" if target_date else "today",
-                    timezone=resolved.timezone,
-                    target_date=target_date,
-                )
         normalized = re.sub(r"^(请问|帮我查一下|帮我查|查询|查一下|查)\s*", "", cleaned).strip()
         normalized = re.sub(r"(?:明天|后天|下周|未来\s*[3３]\s*天|未来\s*[7７]\s*天|多日)", "", normalized).strip()
         match = re.search(r"(?:今天|今日|现在|当前|天气|会下雨|下雨)", normalized)
