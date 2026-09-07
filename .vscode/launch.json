@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "启动天气助手",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "weather_agent.api",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    }
+  ]
+}

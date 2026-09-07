@@ -3,5 +3,6 @@ __pycache__/
 .pytest_cache/
 .uv-cache/
 .venv/
+.env
 weather_agent.db
 src/weather_agent/weather_agent.db
