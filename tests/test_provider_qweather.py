@@ -1,6 +1,8 @@
 import httpx
+import pytest
 import respx
 
+from weather_agent.errors import WeatherServiceUnavailable
 from weather_agent.providers.qweather import QWeatherProvider
 from weather_agent.schemas import WeatherQuery
 
@@ -34,19 +36,17 @@ def test_qweather_provider_parses_current_response():
 
 
 @respx.mock
-def test_qweather_provider_uses_harbin_fallback_when_geo_returns_404():
-    geo = respx.get("https://geoapi.qweather.com/geo/v2/city/lookup").mock(
-        return_value=httpx.Response(404)
-    )
-    weather = respx.get("https://devapi.qweather.com/v7/weather/now").mock(
-        return_value=httpx.Response(200, json={"code": "200", "now": {"temp": "18", "text": "晴"}})
+def test_qweather_provider_reports_invalid_host_instead_of_city_failure():
+    respx.get("https://geoapi.qweather.com/geo/v2/city/lookup").mock(
+        return_value=httpx.Response(
+            403,
+            json={"error": {"status": 403, "type": "invalid-host", "detail": "An invalid or unauthorized API Host."}},
+        )
     )
 
-    data = QWeatherProvider("test-key").get_weather(WeatherQuery(location="哈尔滨", date="current"))
-
-    assert geo.called
-    assert weather.calls[0].request.url.params["location"] == "101050101"
-    assert data.location == "哈尔滨"
+    provider = QWeatherProvider("test-key")
+    with pytest.raises(WeatherServiceUnavailable, match="Host 未获当前 Key 授权"):
+        provider.get_weather(WeatherQuery(location="哈尔滨", date="current"))
 
 
 @respx.mock

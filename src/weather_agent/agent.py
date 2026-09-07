@@ -118,8 +118,10 @@ class WeatherAgent:
                     reply = self._format_forecast(forecast)
                 return ChatResponse(reply=reply, status="success", weather=forecast)
             data = self.cache.get_or_set(query, lambda: get_weather(query, self.provider))
-        except WeatherServiceError:
+        except WeatherServiceError as exc:
             logger.info("weather query failed location=%s", query.location)
+            if "Host 未获当前 Key 授权" in str(exc):
+                return ChatResponse(reply=str(exc), status="error")
             return ChatResponse(reply="抱歉，天气服务暂时无法使用，请稍后再试。", status="error")
         if self.language_model:
             try:

@@ -11,13 +11,6 @@ from ..schemas import DailyForecast, ForecastData, WeatherData, WeatherQuery
 
 logger = logging.getLogger(__name__)
 
-# QWeather's geo endpoint can intermittently return HTTP 404 for otherwise
-# valid city names. Keep a small provider-side fallback for the city observed
-# in production so a basic weather query remains usable during that outage.
-_CITY_ID_FALLBACKS = {
-    "哈尔滨": "101050101",
-}
-
 
 @dataclass(frozen=True)
 class GeocodedPlace:
@@ -82,14 +75,7 @@ class QWeatherProvider:
         return ForecastData(location=query.location, timezone=query.timezone, days=days, source="QWeather")
 
     def _location_id(self, location: str) -> str:
-        try:
-            payload = self._get_geo("/geo/v2/city/lookup", {"location": location, "number": 1})
-        except httpx.HTTPStatusError as exc:
-            fallback = _CITY_ID_FALLBACKS.get(location.strip())
-            if fallback and exc.response.status_code == 404:
-                logger.warning("qweather geo lookup 404, using city fallback location=%s", location)
-                return fallback
-            raise
+        payload = self._get_geo("/geo/v2/city/lookup", {"location": location, "number": 1})
         try:
             return str(payload["location"][0]["id"])
         except (KeyError, IndexError, TypeError) as exc:
@@ -150,7 +136,20 @@ class QWeatherProvider:
         else:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.get(url, params=params)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                error = response.json().get("error", {})
+                detail = str(error.get("detail") or error.get("title") or "")
+            except (ValueError, TypeError):
+                pass
+            if response.status_code == 403 and "host" in detail.lower():
+                raise WeatherServiceUnavailable(
+                    "和风天气 API Host 未获当前 Key 授权，请检查 QWEATHER_API_HOST/QWEATHER_GEO_HOST 配置"
+                ) from exc
+            raise
         payload = response.json()
         if payload.get("code") != "200":
             raise WeatherServiceUnavailable("天气服务返回错误")

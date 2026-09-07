@@ -12,7 +12,12 @@ def create_weather_agent() -> WeatherAgent:
         from .errors import ConfigurationError
 
         raise ConfigurationError("请配置 QWEATHER_API_KEY。")
-    provider = QWeatherProvider(api_key=api_key, timeout_seconds=float(os.getenv("WEATHER_TIMEOUT_SECONDS", "8")))
+    provider = QWeatherProvider(
+        api_key=api_key,
+        api_host=os.getenv("QWEATHER_API_HOST", "https://devapi.qweather.com"),
+        geo_host=os.getenv("QWEATHER_GEO_HOST", "https://geoapi.qweather.com"),
+        timeout_seconds=float(os.getenv("WEATHER_TIMEOUT_SECONDS", "8")),
+    )
     return WeatherAgent(
         provider,
         language_model=OpenAICompatibleWeatherLLM.from_env(),
