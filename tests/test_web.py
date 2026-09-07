@@ -16,3 +16,11 @@ def test_weather_card_distinguishes_probability_from_precipitation_amount():
     assert "降雨概率 ${day.precipitation_probability_percent}%" in response.text
     assert "预计降水 ${day.precipitation_mm} mm" in response.text
     assert "降水数据暂缺" in response.text
+
+
+def test_web_chat_handles_stale_conversation_and_reenables_submit():
+    response = TestClient(app).get("/web/app.js")
+
+    assert "response.status === 404 && conversationId" in response.text
+    assert "submit.disabled = true" in response.text
+    assert "submit.disabled = false" in response.text

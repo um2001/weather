@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .agent import WeatherAgent
 from .errors import ConfigurationError
 from .factory import create_weather_agent
+from .config import load_local_env
 from .database import ConversationStore
 from .schemas import ChatMessage, ChatRequest, ChatResponse
 
@@ -17,6 +18,9 @@ app = FastAPI(title="天气助手 API", version="0.2.0")
 logger = logging.getLogger(__name__)
 WEB_INDEX = os.path.join(os.path.dirname(__file__), "web", "index.html")
 app.mount("/web", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "web")), name="web")
+# Load the project-local .env before creating the store so WEATHER_DB_PATH is
+# honored by the API process as well as by the agent factory.
+load_local_env()
 store = ConversationStore()
 
 

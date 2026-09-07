@@ -1,4 +1,6 @@
 from fastapi.testclient import TestClient
+from pathlib import Path
+import importlib
 
 from weather_agent.agent import WeatherAgent
 from weather_agent.api import app
@@ -68,3 +70,19 @@ def test_conversation_delete_endpoint_removes_conversation():
     assert response.status_code == 200
     assert response.json() == {"deleted": True}
     assert TestClient(app).get(f"/api/conversations/{conversation_id}").status_code == 404
+
+
+def test_api_store_uses_project_env_database_path(monkeypatch, tmp_path):
+    env_path = tmp_path / "configured.db"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WEATHER_DB_PATH", str(env_path))
+
+    import weather_agent.api as api_module
+
+    reloaded = importlib.reload(api_module)
+    try:
+        assert Path(reloaded.store.path) == env_path
+    finally:
+        # Keep the module usable for the remaining tests in this process.
+        monkeypatch.delenv("WEATHER_DB_PATH", raising=False)
+        importlib.reload(api_module)

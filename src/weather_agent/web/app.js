@@ -77,10 +77,18 @@ async function loadConversation(id) {
 async function ask(text) {
   addMessage('user', text);
   input.value = '';
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
   const pending = addMessage('assistant', '正在查询真实天气…');
   try {
     const response = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text, conversation_id: conversationId}) });
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json() : {};
+    if (response.status === 404 && conversationId) {
+      localStorage.removeItem('weather-conversation-id');
+      conversationId = null;
+      title.textContent = '新会话';
+    }
     if (!response.ok) throw new Error(data.detail || '请求失败');
     pending.querySelector('.bubble').textContent = data.reply || '暂时没有拿到建议。';
     if (data.weather) {
@@ -93,7 +101,12 @@ async function ask(text) {
       if (conversationId) localStorage.setItem('weather-conversation-id', conversationId);
     }
     await refreshConversations();
-  } catch (error) { pending.querySelector('.bubble').textContent = error.message || '连接不到天气服务。'; }
+  } catch (error) {
+    pending.querySelector('.bubble').textContent = error.message || '连接不到天气服务，请稍后再试。';
+  } finally {
+    submit.disabled = false;
+    input.focus();
+  }
 }
 
 document.querySelector('#new-chat').onclick = async () => {
