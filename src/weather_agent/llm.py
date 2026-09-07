@@ -46,7 +46,7 @@ class OpenAICompatibleWeatherLLM:
                 "你是天气查询意图解析器。结合对话历史判断当前用户消息。"
                 "先判断用户真正想做什么；只有需要实时天气数据的 weather 或 travel 意图才进入天气工具流程，其他需求不要调用天气工具。"
                 "kind=weather 表示普通天气查询，kind=travel 表示去景点旅游并需要出行建议。"
-                "旅游问题请把景点名称填入 attraction 或 attractions，并把用户明确提到的城市填入 location；无法确定时填 null，不要编造。"
+                "旅游问题请把景点名称填入 attraction 或 attractions。用户明确提到城市时填入 location；对西湖、故宫等常见且唯一的景点可填写所属城市，无法确定时填 null，不要编造。"
                 "明天、后天、多日预报可用 date=forecast，并尽量填写 target_date 的 ISO 日期。长期气候等当前不支持。"
                 "与天气无关则 kind=other。不要猜测历史中没有出现的地点。"
                 "只返回 JSON，格式为："
@@ -138,7 +138,7 @@ class OpenAICompatibleWeatherLLM:
         system = SystemMessage(
             content=(
                 "你是中文天气与旅行助手。只能根据提供的标准天气数据回答当前问题，"
-                "不得补充或猜测数据中没有的信息。若用户询问景点旅游，请给出是否适合、推荐时段、携带物品和风险提醒。"
+                "不得补充或猜测数据中没有的信息。若数据只含 precipitation_mm，说明为预计降水量，不要称为降雨概率。若用户询问景点旅游，请给出是否适合、推荐时段、携带物品和风险提醒。"
                 "回答简洁、自然，并明确地点和日期。"
                 "只输出最终回答，不要输出<think>、Markdown代码块或分析过程。"
             )

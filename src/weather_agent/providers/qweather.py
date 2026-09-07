@@ -50,7 +50,12 @@ class QWeatherProvider:
                 try:
                     forecast = self._get("/v7/weather/3d", {"location": location_id})
                     today = self._parse_forecast_day(forecast["daily"][0])
-                    data = data.model_copy(update={"precipitation_probability_percent": today.precipitation_probability_percent})
+                    data = data.model_copy(
+                        update={
+                            "precipitation_probability_percent": today.precipitation_probability_percent,
+                            "precipitation_mm": today.precipitation_mm,
+                        }
+                    )
                 except (httpx.HTTPError, WeatherServiceUnavailable, KeyError, IndexError, TypeError, ValueError):
                     logger.info("qweather current precipitation unavailable location=%s", query.location)
             else:
@@ -205,4 +210,5 @@ class QWeatherProvider:
             temperature_min_c=float(item["tempMin"]) if item.get("tempMin") is not None else None,
             temperature_max_c=float(item["tempMax"]) if item.get("tempMax") is not None else None,
             precipitation_probability_percent=int(item["precipProbability"]) if item.get("precipProbability") is not None else None,
+            precipitation_mm=float(item["precip"]) if item.get("precip") is not None else None,
         )

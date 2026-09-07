@@ -30,13 +30,32 @@ def test_qweather_provider_parses_current_response():
         return_value=httpx.Response(200, json={"code": "200", "now": {"temp": "24", "text": "晴", "humidity": "45", "windSpeed": "10", "windDir": "东风", "windScale": "2"}})
     )
     respx.get("https://devapi.qweather.com/v7/weather/3d").mock(
-        return_value=httpx.Response(200, json={"code": "200", "daily": [{"fxDate": "2026-09-07", "tempMin": "22", "tempMax": "28", "textDay": "晴", "precipProbability": "30"}]})
+        return_value=httpx.Response(200, json={"code": "200", "daily": [{"fxDate": "2026-09-07", "tempMin": "22", "tempMax": "28", "textDay": "晴", "precipProbability": "30", "precip": "1.2"}]})
     )
     data = QWeatherProvider("test-key").get_weather(WeatherQuery(location="上海", date="current"))
     assert data.temperature_c == 24
     assert data.humidity_percent == 45
     assert data.wind_description == "东风 2级"
     assert data.precipitation_probability_percent == 30
+    assert data.precipitation_mm == 1.2
+
+
+@respx.mock
+def test_qweather_provider_uses_precipitation_amount_when_probability_is_unavailable():
+    respx.get("https://geoapi.qweather.com/geo/v2/city/lookup").mock(
+        return_value=httpx.Response(200, json={"code": "200", "location": [{"id": "101020100"}]})
+    )
+    respx.get("https://devapi.qweather.com/v7/weather/now").mock(
+        return_value=httpx.Response(200, json={"code": "200", "now": {"temp": "24", "text": "晴"}})
+    )
+    respx.get("https://devapi.qweather.com/v7/weather/3d").mock(
+        return_value=httpx.Response(200, json={"code": "200", "daily": [{"fxDate": "2026-09-07", "tempMin": "22", "tempMax": "28", "textDay": "晴", "precip": "2.5"}]})
+    )
+
+    data = QWeatherProvider("test-key").get_weather(WeatherQuery(location="上海", date="current"))
+
+    assert data.precipitation_probability_percent is None
+    assert data.precipitation_mm == 2.5
 
 
 @respx.mock

@@ -14,7 +14,10 @@ function addMessage(role, text, weather) {
     const card = document.createElement('div');
     card.className = 'weather-card';
     const day = weather.days ? weather.days[0] : weather;
-    card.innerHTML = `<strong>${weather.location || ''}</strong><span>${day.date || ''}</span><b>${day.weather_description || ''}</b><span>${day.temperature_min_c ?? ''}${day.temperature_min_c != null ? '～' : ''}${day.temperature_max_c ?? day.temperature_c ?? ''}°C</span><span>降雨概率 ${day.precipitation_probability_percent ?? '—'}%</span>`;
+    const precipitation = day.precipitation_probability_percent != null
+      ? `降雨概率 ${day.precipitation_probability_percent}%`
+      : day.precipitation_mm != null ? `预计降水 ${day.precipitation_mm} mm` : '降水数据暂缺';
+    card.innerHTML = `<strong>${weather.location || ''}</strong><span>${day.date || ''}</span><b>${day.weather_description || ''}</b><span>${day.temperature_min_c ?? ''}${day.temperature_min_c != null ? '～' : ''}${day.temperature_max_c ?? day.temperature_c ?? ''}°C</span><span>${precipitation}</span>`;
     node.appendChild(card);
   }
   messages.appendChild(node);

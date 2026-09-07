@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from .cache import WeatherCache
 from .errors import LanguageModelError, LanguageModelResponseError, WeatherServiceError
 from .llm import WeatherLanguageModel
-from .location import resolve_location
+from .location import resolve_attraction, resolve_location
 from .providers.base import WeatherProvider
 from .schemas import ChatMessage, ChatResponse, ForecastData, WeatherData, WeatherQuery
 from .tools import get_weather
@@ -61,7 +61,8 @@ class WeatherAgent:
         place_name = attraction or intent.location
         if not place_name or not place_name.strip():
             return ChatResponse(reply="请告诉我想查询的城市或地区。", status="clarification")
-        resolved = resolve_location(intent.location or place_name)
+        known_attraction = resolve_attraction(attraction) if attraction else None
+        resolved = known_attraction if known_attraction and not intent.location else resolve_location(intent.location or place_name)
         latitude = longitude = None
         display_name = resolved.name
         resolver = getattr(self.provider, "resolve_place", None)
@@ -69,7 +70,7 @@ class WeatherAgent:
         # Ordinary city weather requests should go straight through the city
         # lookup performed by the weather provider; treating every location as
         # a POI makes valid cities such as 哈尔滨 fail with a POI 404.
-        if attraction and resolver is not None:
+        if attraction and resolver is not None and known_attraction is None:
             try:
                 place = resolver(place_name, city=intent.location if attraction else None)
                 display_name = place.name
@@ -148,9 +149,13 @@ class WeatherAgent:
         if data.temperature_min_c is not None and data.temperature_max_c is not None:
             temperature = f"，气温{data.temperature_min_c:g}～{data.temperature_max_c:g}°C"
         rain = f"，降雨概率{data.precipitation_probability_percent}%" if data.precipitation_probability_percent is not None else ""
+        if not rain and data.precipitation_mm is not None:
+            rain = f"，预计降水{data.precipitation_mm:g} mm"
         advice = "适合安排户外游览，建议根据体感准备饮水和防晒用品。"
         if data.precipitation_probability_percent is not None and data.precipitation_probability_percent >= 50:
             advice = "建议携带雨具，并准备室内或短途备用方案。"
+        elif data.precipitation_mm is not None and data.precipitation_mm > 0:
+            advice = "预计有降水，建议携带雨具，并准备室内或短途备用方案。"
         return f"{data.location}（{data.date}）{description}{temperature}{rain}。{advice}"
 
     @staticmethod
@@ -196,6 +201,8 @@ class WeatherAgent:
             parts.append(f"风速{data.wind_speed_kmh:g} km/h")
         if data.precipitation_probability_percent is not None:
             parts.append(f"降雨概率{data.precipitation_probability_percent}%")
+        elif data.precipitation_mm is not None:
+            parts.append(f"预计降水{data.precipitation_mm:g} mm")
         return "，".join(parts) + "。"
 
     @staticmethod
@@ -209,5 +216,7 @@ class WeatherAgent:
                 values.append(f"{day.temperature_min_c:g}～{day.temperature_max_c:g}°C")
             if day.precipitation_probability_percent is not None:
                 values.append(f"降雨概率{day.precipitation_probability_percent}%")
+            elif day.precipitation_mm is not None:
+                values.append(f"预计降水{day.precipitation_mm:g} mm")
             parts.append(f"{values[0]}：{'，'.join(values[1:])}")
         return "；".join(parts) + "。"

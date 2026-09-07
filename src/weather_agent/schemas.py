@@ -33,6 +33,7 @@ class WeatherData(BaseModel):
     humidity_percent: int | None = Field(default=None, ge=0, le=100)
     wind_speed_kmh: float | None = Field(default=None, ge=0)
     precipitation_probability_percent: int | None = Field(default=None, ge=0, le=100)
+    precipitation_mm: float | None = Field(default=None, ge=0)
     temperature_min_c: float | None = None
     temperature_max_c: float | None = None
     wind_description: str | None = None
@@ -46,6 +47,7 @@ class DailyForecast(BaseModel):
     temperature_min_c: float | None = None
     temperature_max_c: float | None = None
     precipitation_probability_percent: int | None = Field(default=None, ge=0, le=100)
+    precipitation_mm: float | None = Field(default=None, ge=0)
 
 
 class ForecastData(BaseModel):

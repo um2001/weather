@@ -29,11 +29,16 @@ _ATTRACTIONS = {
 }
 
 
+def resolve_attraction(value: str) -> ResolvedLocation | None:
+    entry = _ATTRACTIONS.get(value.strip())
+    return ResolvedLocation(*entry) if entry else None
+
+
 def resolve_location(value: str) -> ResolvedLocation:
     cleaned = value.strip()
-    if cleaned in _ATTRACTIONS:
-        name, timezone = _ATTRACTIONS[cleaned]
-        return ResolvedLocation(name, timezone)
+    attraction = resolve_attraction(cleaned)
+    if attraction:
+        return attraction
     if cleaned in _ALIASES:
         name, timezone = _ALIASES[cleaned]
         return ResolvedLocation(name, timezone)
