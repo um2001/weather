@@ -8,7 +8,8 @@ from typing import Any
 
 class ConversationStore:
     def __init__(self, path: str | None = None):
-        self.path = Path(path or os.getenv("WEATHER_DB_PATH", "weather_agent.db"))
+        default_path = Path(__file__).with_name("weather_agent.db")
+        self.path = Path(path or os.getenv("WEATHER_DB_PATH") or default_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 

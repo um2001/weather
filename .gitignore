@@ -4,3 +4,4 @@ __pycache__/
 .uv-cache/
 .venv/
 weather_agent.db
+src/weather_agent/weather_agent.db

@@ -9,3 +9,10 @@ def test_conversation_store_persists_messages(tmp_path):
     loaded = store.get(conversation["id"])
     assert loaded["title"] == "后天去颐和园"
     assert loaded["messages"][1]["weather"]["source"] == "QWeather"
+
+
+def test_default_database_path_is_inside_package(monkeypatch):
+    monkeypatch.delenv("WEATHER_DB_PATH", raising=False)
+    store = ConversationStore()
+    assert store.path.name == "weather_agent.db"
+    assert store.path.parent.name == "weather_agent"

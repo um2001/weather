@@ -33,10 +33,10 @@ QWEATHER_API_KEY=你的和风天气Key
 LLM_API_KEY=你的模型Key
 LLM_MODEL=模型名称
 LLM_BASE_URL=https://你的兼容接口/v1
-WEATHER_DB_PATH=weather_agent.db
+WEATHER_DB_PATH=src/weather_agent/weather_agent.db
 ```
 
-`LLM_BASE_URL` 可选；不设置时使用模型 SDK 默认地址。API Key 只在后端使用，不会返回给浏览器。
+`LLM_BASE_URL` 可选；不设置时使用模型 SDK 默认地址。未设置 `WEATHER_DB_PATH` 时，数据库默认保存在 `src/weather_agent/weather_agent.db`。API Key 只在后端使用，不会返回给浏览器。
 
 ## 安装和运行
 
