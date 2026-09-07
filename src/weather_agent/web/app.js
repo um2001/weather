@@ -35,6 +35,7 @@ function renderConversationList(items) {
     remove.className = 'conversation-delete';
     remove.type = 'button';
     remove.title = '删除会话';
+    remove.setAttribute('aria-label', `删除会话：${item.title}`);
     remove.textContent = '×';
     remove.onclick = (event) => { event.stopPropagation(); deleteConversation(item.id); };
     row.append(button, remove);

@@ -47,6 +47,12 @@ class QWeatherProvider:
             if query.date == "current":
                 payload = self._get("/v7/weather/now", {"location": location_id})
                 data = self._parse_now(payload, query)
+                try:
+                    forecast = self._get("/v7/weather/3d", {"location": location_id})
+                    today = self._parse_forecast_day(forecast["daily"][0])
+                    data = data.model_copy(update={"precipitation_probability_percent": today.precipitation_probability_percent})
+                except (httpx.HTTPError, WeatherServiceUnavailable, KeyError, IndexError, TypeError, ValueError):
+                    logger.info("qweather current precipitation unavailable location=%s", query.location)
             else:
                 payload = self._get("/v7/weather/3d", {"location": location_id})
                 data = self._parse_day(payload, query)

@@ -16,6 +16,7 @@ class ConversationStore:
     def _connect(self):
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
     def _initialize(self):
@@ -76,5 +77,6 @@ class ConversationStore:
 
     def delete(self, conversation_id: int) -> bool:
         with self._connect() as db:
+            db.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
             cursor = db.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
             return cursor.rowcount > 0
