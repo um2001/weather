@@ -32,6 +32,11 @@ class PoiProvider(FakeProvider):
         return GeocodedPlace(name=name, city=city, latitude=31.1, longitude=121.6, timezone="Asia/Shanghai")
 
 
+class FailingPoiProvider(FakeProvider):
+    def resolve_place(self, name, city=None):
+        raise AssertionError("ordinary city weather must not use POI geocoding")
+
+
 def test_agent_calls_weather_tool_and_answers_in_chinese():
     provider = FakeProvider()
     answer = WeatherAgent(provider).answer("上海今天会下雨吗？")
@@ -90,6 +95,16 @@ def test_agent_uses_model_to_understand_natural_language():
     assert response.status == "success"
     assert response.reply == "模型回答：杭州22°C"
     assert provider.queries[0].location == "杭州"
+
+
+def test_agent_does_not_geocode_ordinary_city_weather_as_poi():
+    provider = FailingPoiProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="weather", location="哈尔滨"))
+
+    response = WeatherAgent(provider, language_model=model).respond("哈尔滨最近天气怎么样？")
+
+    assert response.status == "success"
+    assert provider.queries[0].location == "哈尔滨"
 
 
 def test_agent_uses_provider_geocoding_for_arbitrary_attraction():

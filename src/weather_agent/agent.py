@@ -65,7 +65,11 @@ class WeatherAgent:
         latitude = longitude = None
         display_name = resolved.name
         resolver = getattr(self.provider, "resolve_place", None)
-        if resolver is not None:
+        # POI geocoding is only needed for explicit attraction/travel queries.
+        # Ordinary city weather requests should go straight through the city
+        # lookup performed by the weather provider; treating every location as
+        # a POI makes valid cities such as 哈尔滨 fail with a POI 404.
+        if attraction and resolver is not None:
             try:
                 place = resolver(place_name, city=intent.location if attraction else None)
                 display_name = place.name
