@@ -141,6 +141,16 @@ def test_agent_asks_for_location_from_model_intent():
     assert provider.queries == []
 
 
+def test_agent_does_not_call_weather_provider_for_non_weather_intent():
+    provider = FailingPoiProvider()
+    model = FakeLanguageModel(WeatherIntent(kind="other"))
+
+    response = WeatherAgent(provider, language_model=model).respond("给我讲个笑话")
+
+    assert response.status == "unsupported"
+    assert provider.queries == []
+
+
 def test_agent_falls_back_to_standardized_data_when_answer_model_fails():
     class FailingAnswerModel(FakeLanguageModel):
         def generate_answer(self, message, history, data):
